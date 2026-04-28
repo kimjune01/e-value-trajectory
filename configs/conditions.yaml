@@ -106,3 +106,43 @@ calibrated:
     peak_threshold: 15.0  # original: 3.0. Null p99 = 12.6, max = 14.1.
   cusum:
     threshold_h: 20  # original: 5. At h=20, null FA rate = 2/100.
+
+composition:
+  period: 500
+  phase: 0.0
+  n_observations: 10000
+  n_replications: 100
+  base_seed: 42
+  # Fixed alternatives: log(e_t) is linear in X_t, preserving fundamental frequency.
+  # Time-indexed alternatives introduce KL-divergence harmonics at 2/T.
+  streams:
+    temperature:
+      label: "Temperature anomaly"
+      distribution: normal
+      null_params: { mu: 0.0, sigma: 1.0 }
+      alt_params: { lambda: 0.3 }
+      amplitude: 0.05
+    fish_count:
+      label: "Fish count per trawl"
+      distribution: poisson
+      null_params: { mu: 10.0 }
+      alt_params: { mu: 11.0 }
+      amplitude: 0.016
+    inter_event:
+      label: "Inter-event time"
+      distribution: exponential
+      null_params: { rate: 0.5 }
+      alt_params: { rate: 0.55 }
+      amplitude: 0.05
+    turbidity:
+      label: "Turbidity exceedance"
+      distribution: bernoulli
+      null_params: { p: 0.3 }
+      alt_params: { p: 0.35 }
+      amplitude: 0.11
+    dissolved_oxygen:
+      label: "Dissolved oxygen"
+      distribution: lognormal
+      null_params: { mu: 1.0, sigma: 0.5 }
+      alt_params: { delta: 0.1 }
+      amplitude: 0.025

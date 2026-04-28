@@ -101,3 +101,17 @@ Sent the plan to codex. Key feedback:
 - Cut trajectory figure unless it serves a claim beyond spectral detection.
 
 Status: waiting on user decision about which codex feedback to act on before implementing `src/compose.py`.
+
+### 09:45 — Composition experiment: two bugs, one surprise
+
+Implemented `src/compose.py`. First run revealed two bugs:
+
+1. **Null e-values were zero.** When null=True, amplitude was set to 0, making the alternative equal the null. Fix: generate data under H0 but compute e-values against the same fixed alternative (not time-indexed).
+
+2. **Period detected at 250, not 500.** Time-indexed alternatives create KL-divergence harmonics at 2/T because the expected log-LR is quadratic in the parameter perturbation. Fix: use fixed alternatives (like V1). log(e_t) is linear in X_t, periodogram shows fundamental. Codex had recommended time-indexed alternatives, but in practice they introduce artifacts.
+
+After fixing: individual streams at PMR 13–14 (26–35% detection), composed e-value at PMR 37.8 (99% detection), period 500 in 99% of reps. Null means all within 0.02% of 1.0.
+
+**Surprise:** standardized-sum baseline only 29% detection (vs composed 99%). Pre-registered prediction was equivalence (TOST d=0.2). The composed e-value is 2.3× stronger. Reason: likelihood ratio weights each stream by Fisher information, extracting more from informative streams. Standardized sum weights equally. This is a genuine power advantage, not just a validity argument.
+
+Updated report.md with full Claim 4 section.
