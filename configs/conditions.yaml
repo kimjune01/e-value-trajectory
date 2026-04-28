@@ -12,9 +12,12 @@ conditions:
   d_ar1:
     label: "(d) AR(1) with drift"
     dgp: ar1
-    params: { phi: 0.9, c: 0.03, sigma: 0.436 }
+    params: { phi: 0.9, c: 0.03, sigma: 1.0 }
     # stationary mean = c/(1-phi) = 0.03/0.1 = 0.3
-    # sigma_innovation = sqrt(1-phi^2) ≈ 0.436, so marginal variance ≈ 1.0
+    # innovation sigma = 1.0 (matches conditional variance assumed by e-value formula)
+    # marginal variance = sigma^2/(1-phi^2) ≈ 5.26 — higher than other conditions
+    # this is the honest comparison: same per-step noise, different marginal spread
+    # periodogram noise floor will be higher; document in report
 
   i_sinusoidal:
     label: "(i) Sinusoidal (no feedback)"
