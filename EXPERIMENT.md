@@ -56,9 +56,11 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 ### Claim 1: Cyclic systems produce oscillating e-value trajectories
 
-**Setup — five DGPs, three with feedback:**
+**N = 10,000 observations for all conditions.**
+
+**Setup — five DGPs:**
 - **(a) Stationary effect**: i.i.d. draws from N(μ=0.3, σ=1). True effect, no dynamics.
-- **(b) Feedback cycle (Lotka-Volterra)**: discretized predator-prey system. X_t is noisy observation of prey population. The oscillation emerges from the dynamics (prey grows → predator grows → prey shrinks → predator shrinks → repeat). Period is not injected; it emerges from the parameters.
+- **(b) Feedback cycle (Lotka-Volterra)**: discretized predator-prey system (Euler, dt=0.01). Parameters: α=1.0, β=0.1, δ=0.075, γ=1.5, initial (x₀, y₀) = (10, 5). X_t is noisy observation of prey population: X_t = x_t + ε, ε ~ N(0, 1). Expected emergent period ≈ 500 steps. If actual period < 100 or > 2000, adjust parameters per escape hatch and log as new experiment.
 - **(c) Null**: i.i.d. draws from N(0, 1). No effect.
 - **(d) AR(1) with drift**: X_t = 0.9·X_{t-1} + 0.3 + ε_t, ε ~ N(0,1). Autocorrelated, mean-reverting, no explicit cycle. Tests whether autocorrelation alone produces oscillation artifacts.
 - **(e) Regime-switching**: hidden Markov model with two states (μ=0.3 and μ=-0.3), transition probability 0.005 per step. Random regime changes, not periodic.
@@ -75,7 +77,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 - (e) log(E_t) shows regime-dependent growth/shrinkage. Periodogram shows no clean peak (random switching, not periodic).
 
 **Falsification:**
-- If (a) and (b) produce indistinguishable periodograms (TOST equivalence, d < 0.2 on peak height), the thesis is wrong.
+- If (b) and (c) produce indistinguishable periodograms (TOST equivalence on peak height, margin d = 0.2), the thesis is wrong. The meaningful comparison is (b)'s peak against (c)'s noise floor, not against (a).
 - If (d) produces a periodogram peak comparable to (b), autocorrelation confounds the diagnostic.
 - If (e) produces a clean peak, the diagnostic can't distinguish periodic from random switching.
 
@@ -85,27 +87,29 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 **Measurement:**
 - Periodogram of Δlog(E_t) for all five conditions (no oracle parameters needed).
 - Same periodogram on raw X_t, for comparison. The thesis holds if the e-value periodogram reveals structure the raw-data periodogram also shows (validating transparency) or reveals it more cleanly (e-value as amplifier).
-- TOST equivalence test between periodogram peak heights of (a) vs (b).
+- TOST equivalence test between periodogram peak heights of (b) vs (c) noise floor.
 - Visual: plot all five trajectories on the same axes (log scale).
 
 ### Claim 2: Trajectory shape classifies faster than threshold crossing
 
 **Setup:**
-- Same five conditions.
-- Two classifiers race:
-  - **Threshold classifier**: standard e-value test, reject null when E_t > 20 (α=0.05).
-  - **Spectral classifier**: sliding-window periodogram on Δlog(E_t) (window = 500, no knowledge of T). Classifies as "periodic" when peak power exceeds 3× median power; "stationary" when slope of log(E_t) is consistently positive; "null" when slope is consistently negative.
+- Same five conditions, N=10,000.
+- Both classifiers output the same three labels: **reject null** (effect detected), **periodic** (cyclic dynamics detected), **null** (no effect). This ensures a common decision space.
+  - **Threshold classifier**: reject null when E_t > 20 (α=0.05). Labels "null" when log(E_t) slope is negative over a 500-observation window. Labels "periodic" never (it has no mechanism to detect periodicity). This is the baseline: a classifier that cannot diagnose cyclicity.
+  - **Spectral classifier**: sliding-window periodogram on Δlog(E_t) (window = 500, no knowledge of T). Labels "periodic" when peak power exceeds 3× median power. Labels "reject null" when slope of log(E_t) is consistently positive over a 500-observation window with no spectral peak. Labels "null" when slope is consistently negative.
 
 **Prediction:**
-- Spectral classifier identifies (b) as periodic before threshold classifier reaches a verdict.
-- Spectral classifier identifies (c) as null before E_t has drifted far enough to be conclusive.
+- For condition (b), spectral classifier labels "periodic" before threshold classifier labels "reject null." The spectral classifier extracts more information (the *kind* of effect, not just its presence).
+- For condition (c), both classifiers reach "null" at similar times.
+- For conditions (a) and (d), threshold classifier labels "reject null" first (no periodicity to detect, spectral classifier has no advantage).
 
 **Falsification:**
-- If threshold crossing is consistently faster than spectral classification, trajectory analysis adds no value over standard e-value testing.
+- If threshold classifier reaches "reject null" on condition (b) before spectral classifier reaches "periodic," trajectory analysis doesn't provide earlier diagnosis for cyclic systems.
+- If spectral classifier never labels (b) as "periodic" across 100 replications, it can't detect the cyclicity the thesis claims is visible.
 
 **Measurement:**
-- For each condition, record the observation index at which each classifier first commits to the correct label.
-- Compare median stopping times across 100 replications. Report interquartile range.
+- For each condition, record the observation index at which each classifier first commits to any label.
+- Compare median stopping times across 100 replications. Report interquartile range and variance.
 
 ### Claim 3: Regime changes in the system appear as regime changes in the evidence
 
@@ -124,9 +128,12 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 - If changepoint detection delay |t_detected - 5,000| > 500 observations, the trajectory is too noisy to be diagnostic.
 
 **Measurement:**
-- CUSUM and Bayesian online changepoint detection on sliding-window slope of log(E_t).
+- CUSUM on sliding-window slope of log(E_t). Reference value k = 0.5 × (mean slope under effect). Threshold h = 5 (standard). These are pinned; no post-hoc tuning.
+- Bayesian online changepoint detection (Adams & MacKay 2007) with hazard rate = 1/2000 (expecting ~1 change per 2000 observations). Pinned.
 - Detection delay and false alarm rate (tested against stationary conditions a and c).
-- Head-to-head: same changepoint detectors on raw X_t vs on log(E_t). Does the e-value trajectory make the regime change easier or harder to detect than the raw data?
+- Head-to-head: same detectors, same parameters, on raw X_t vs on log(E_t).
+
+**Multiple comparisons:** Across all claims, 5 DGP conditions × 3 regime variants × 2 detection methods × 3 λ values = ~90 tests. Apply Bonferroni correction (α = 0.05/90 ≈ 0.0006) to all significance tests. Report both corrected and uncorrected p-values.
 
 ## Implementation order
 
