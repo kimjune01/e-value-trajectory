@@ -169,13 +169,33 @@ The conditions are independent — no condition's output feeds into another's in
 
 Steps 1–2 are the bottleneck. Steps 3 are free once 2 finishes. Step 4 is minutes.
 
+## Directory structure
+
+```
+configs/conditions.yaml    — all DGP parameters, detection thresholds, seeds (single source of truth)
+data/                      — generated data + e-values (gitignored, reproducible from configs + src)
+src/
+  generate.py              — produce all conditions, all replications
+  evalues.py               — sequential e-value computation
+  spectral.py              — periodogram on Δlog(E_t) and raw X_t
+  classify.py              — spectral classifier vs threshold vs Bayesian race
+  changepoint.py           — CUSUM + Bayesian CPD on evidence trajectories vs raw data
+  sensitivity.py           — λ sensitivity analysis
+  plot.py                  — all figures
+results/
+  plots/                   — generated figures
+  tables/                  — summary statistics
+report.md                  — all results, all figures, all failures, verdict
+```
+
 ## Implementation order
 
-1. `generate_synthetic.py` — produce all conditions (a)–(h), with fixed seeds
-2. `compute_evalues.py` — sequential e-value computation
-3. `plot_trajectories.py` — visual comparison
-4. `spectral_analysis.py` — periodogram on Δlog(E_t) and raw X_t
-5. `classify_shape.py` — spectral classifier vs threshold classifier race
-6. `detect_regime.py` — changepoint detection on evidence trajectories vs raw data
-7. `sensitivity.py` — λ sensitivity analysis
-8. `report.md` — all results, all figures, all failures, verdict
+1. `src/generate.py` — reads `configs/conditions.yaml`, produces `data/{condition}/{seed}.csv`
+2. `src/evalues.py` — reads generated data, writes `data/{condition}/{seed}_evalues.csv`
+3. In parallel:
+   - `src/spectral.py` — periodograms → `results/tables/`
+   - `src/classify.py` — classifier race → `results/tables/`
+   - `src/changepoint.py` — detection delay → `results/tables/`
+   - `src/sensitivity.py` — λ variants → `results/tables/`
+4. `src/plot.py` — reads results, writes `results/plots/`
+5. `report.md` — human-written, references `results/`

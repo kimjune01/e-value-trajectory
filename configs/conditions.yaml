@@ -1,0 +1,86 @@
+conditions:
+  c_null:
+    label: "(c) Null"
+    dgp: iid_normal
+    params: { mu: 0.0, sigma: 1.0 }
+
+  a_stationary:
+    label: "(a) Stationary effect"
+    dgp: iid_normal
+    params: { mu: 0.3, sigma: 1.0 }
+
+  d_ar1:
+    label: "(d) AR(1) with drift"
+    dgp: ar1
+    params: { phi: 0.9, c: 0.3, sigma: 1.0 }
+
+  i_sinusoidal:
+    label: "(i) Sinusoidal (no feedback)"
+    dgp: sinusoidal
+    params: { amplitude: 0.3, period: 500, sigma: 1.0 }
+
+  b_lotka_volterra:
+    label: "(b) Deterministic Lotka-Volterra"
+    dgp: lotka_volterra
+    params: { alpha: 1.0, beta: 0.1, delta: 0.075, gamma: 1.5, x0: 10, y0: 5, dt: 0.01, obs_sigma: 1.0, process_sigma: 0.0 }
+
+  b2_stochastic_lv:
+    label: "(b2) Stochastic Lotka-Volterra"
+    dgp: lotka_volterra
+    params: { alpha: 1.0, beta: 0.1, delta: 0.075, gamma: 1.5, x0: 10, y0: 5, dt: 0.01, obs_sigma: 1.0, process_sigma: 0.05 }
+
+  e_regime_switching:
+    label: "(e) Regime-switching"
+    dgp: hmm
+    params: { mu_states: [0.3, -0.3], transition_prob: 0.005, sigma: 1.0 }
+
+evalue:
+  lambda: 0.3
+  formula: "exp(lambda * x - lambda**2 / 2)"
+
+experiment:
+  n_observations: 10000
+  n_replications: 100
+  base_seed: 42
+
+regime_switch_conditions:
+  f_effect_to_null:
+    label: "(f) Effect → null"
+    mu_before: 0.3
+    mu_after: 0.0
+    switch_at: 5000
+
+  g_null_to_effect:
+    label: "(g) Null → effect"
+    mu_before: 0.0
+    mu_after: 0.3
+    switch_at: 5000
+
+  h_effect_reversed:
+    label: "(h) Effect → reversed"
+    mu_before: 0.3
+    mu_after: -0.3
+    switch_at: 5000
+
+sensitivity:
+  lambda_multipliers: [0.5, 1.0, 2.0]
+
+detection:
+  cusum:
+    reference_k_factor: 0.5  # k = factor × mean_slope_under_effect
+    threshold_h: 5
+  bayesian_cpd:
+    hazard_rate: 0.0005  # 1/2000
+  spectral:
+    window: 500
+    peak_threshold: 3.0  # peak power > threshold × median power
+
+multiple_comparisons:
+  method: bonferroni
+  n_tests: 90
+  alpha: 0.05
+  corrected_alpha: 0.00056
+
+equivalence:
+  method: TOST
+  margin_d: 0.2
