@@ -199,3 +199,38 @@ report.md                  — all results, all figures, all failures, verdict
    - `src/sensitivity.py` — λ variants → `results/tables/`
 4. `src/plot.py` — reads results, writes `results/plots/`
 5. `report.md` — human-written, references `results/`
+
+---
+
+## Addendum: pipeline reframe (appended after first run)
+
+The first run (2026-04-27) revealed that the per-step e-value periodogram is identical to the raw-data periodogram (Δlog(e_t) = λX_t - λ²/2 is an affine transform). This doesn't invalidate the claims but reframes what each arrow in the pipeline is testing.
+
+### The pipeline
+
+```
+raw data → e-values → classification → decision tree → diagnostic
+```
+
+Each arrow is a different kind of claim:
+
+1. **Raw data → e-values** (math, proven). The projection is valid by the supermartingale theorem. E-values map heterogeneous evidence (frequencies, probabilities, periodic signals, disjoint observations) to a single temporal series with valid composition under variable method and variable n. No experiment needed — this is a theorem about the representation.
+
+2. **E-values → classification** (empirical, tested). The first run showed the periodogram distinguishes cyclic (LV peak/median ≈ 2363), null (peak/median ≈ 12), and autocorrelated (AR(1) peak/median ≈ 1109, broad peak). For a single homogeneous stream, raw data carries the same spectral information. The e-value's added value is composability across heterogeneous streams, not spectral amplification.
+
+3. **Classification → decision tree** (design, pre-registered). The four-bin table maps response class to next experiment. This is a design choice, not a testable claim.
+
+4. **Decision tree → diagnostic** (empirical, not yet tested). Does iterating the pipeline (perturb → classify → select next experiment → perturb again) converge on the system's causal structure? This requires multi-round experiments, not single-run analysis.
+
+### What changes
+
+- Claims 1 and 2 as originally written test arrow 2. The first run partially answered Claim 1 (classification works) and showed that e-value vs raw periodogram is a tie for homogeneous streams.
+- The interesting open question is arrow 4: multi-round convergence. This is a new experiment, not a revision of Claims 1–3.
+- Claims 1–3 remain as originally pre-registered. Results will be reported as written. The pipeline reframe is interpretive context, not a protocol change.
+
+### Candidate Claim 4 (not yet pre-registered)
+
+**Question:** Does iterating the perturbation-response pipeline across multiple rounds converge on the system's cycle structure?
+**In plain English:** If you keep poking and classifying, does the map of the system get sharper?
+
+This would require a multi-round simulation where a synthetic "experimenter" selects the next perturbation based on the previous classification, and the cycle map's accuracy is measured after each round against ground truth. Deferred to a follow-up experiment.
