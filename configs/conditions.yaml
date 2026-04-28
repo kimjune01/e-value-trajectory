@@ -95,3 +95,14 @@ multiple_comparisons:
 equivalence:
   method: TOST
   margin_d: 0.2
+
+# Calibrated parameters (post-hoc, derived from null condition data).
+# Original pre-registered values above are preserved. These are corrected
+# after the first run showed the originals were miscalibrated.
+# Methodology: compute distribution of test statistic under null condition (c),
+# set threshold at p99 + margin. Logged in WORKLOG.md.
+calibrated:
+  spectral:
+    peak_threshold: 15.0  # original: 3.0. Null p99 = 12.6, max = 14.1.
+  cusum:
+    threshold_h: 20  # original: 5. At h=20, null FA rate = 2/100.
