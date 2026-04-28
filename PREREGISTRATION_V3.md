@@ -1,147 +1,184 @@
-# Pre-registration: Four-bin classification on composed e-value trajectories
+# Pre-registration: Forcing-pattern classification on composed e-value trajectories
 
-Third pre-registration. V1 tested single-stream diagnostics (Claims 1–3). V2 tested heterogeneous composition for periodicity detection (Claim 4). This document covers Claim 5: full four-bin dynamical classification on composed trajectories.
+Third pre-registration. V1 tested single-stream diagnostics (Claims 1–3). V2 tested heterogeneous composition for periodicity detection (Claim 4). This document covers Claim 5: classifying composed trajectories into forcing patterns using a hierarchical decision rule.
+
+## Framing
+
+This experiment classifies **shared forcing patterns**, not intrinsic dynamical regimes. The composed e-value trajectory is a noisy scalar time series produced by aggregating evidence across heterogeneous experiments. We classify its morphology — trending, decaying, oscillating, aperiodically forced, or null — using a fixed decision tree with null-calibrated thresholds.
+
+The detection methods for each pattern are individually established (see citations below). No single paper assembles them into a unified four-bin pipeline. The pipeline itself is the contribution.
 
 ## What prior work establishes (no experiment needed)
 
-### Single-stream e-value trajectories inherit dynamical classification from raw data
+### Single-stream classification is invariant
 
-For a single univariate stream with fixed alternative, log(e_t) = cX_t + d (affine transform). Dynamical classification is invariant under invertible affine transforms: Lyapunov exponents are unchanged (log-distance growth adds only a constant from |c|), the 0-1 test is invariant under scaling and translation, periodogram peak ratios cancel the scale factor, and trend tests are sign-preserved for c > 0 (Kantz & Schreiber, 2004, §3.1–3.3). No experiment needed — classifying log(e_t) gives the same result as classifying X_t.
+For a single univariate stream with fixed alternative, log(e_t) = cX_t + d (affine transform). All classification methods are invariant under invertible affine transforms: Lyapunov exponents unchanged (Kantz & Schreiber, 2004, §3.1–3.3), 0-1 test invariant under scaling/translation (Gottwald & Melbourne, 2009), periodogram peak ratios cancel the scale factor, trend tests sign-preserved for c > 0. No experiment needed.
 
-### The four bins and their detection methods are established
+### E-value composition is valid
 
-Each regime has canonical detection methods from the nonlinear time series analysis literature:
-
-**Convergence (stable fixed point).** Negative largest Lyapunov exponent. Exponentially decaying autocorrelation. Perturbations shrink.
-- Rosenstein, M. T., Collins, J. J., & De Luca, C. J. (1993). "A practical method for calculating largest Lyapunov exponents from small data sets." *Physica D*, 65(1–2), 117–134.
-- Kantz, H. (1994). "A robust method to estimate the maximal Lyapunov exponent of a time series." *Physics Letters A*, 185(1), 77–87.
-
-**Divergence (unstable/trending).** Positive trend, non-stationary. Unit root or explosive root.
-- Mann, H. B. (1945). "Nonparametric tests against trend." *Econometrica*, 13(3), 245–259.
-- Dickey, D. A., & Fuller, W. A. (1979). "Distribution of the estimators for autoregressive time series with a unit root." *JASA*, 74(366), 427–431.
-
-**Oscillation (limit cycle).** Spectral peaks, periodic autocorrelation. Tested in V1 (Claim 1) and V2 (Claim 4).
-- Periodogram analysis. See V1 report for implementation.
-
-**Chaos (strange attractor).** Positive largest Lyapunov exponent. Bounded but aperiodic. Broadband spectrum.
-- Gottwald, G. A., & Melbourne, I. (2004). "A new test for chaos in deterministic systems." *Proc. R. Soc. Lond. A*, 460, 603–611.
-- Gottwald, G. A., & Melbourne, I. (2009). "On the implementation of the 0-1 test for chaos." *SIAM J. Appl. Dyn. Syst.*, 8(1), 129–145.
-- Wolf, A., Swift, J. B., Swinney, H. L., & Vastano, J. A. (1985). "Determining Lyapunov exponents from a time series." *Physica D*, 16(3), 285–317.
-
-**General references:**
-- Kantz, H., & Schreiber, T. (2004). *Nonlinear Time Series Analysis*, 2nd ed. Cambridge University Press.
-- Strogatz, S. H. (2014). *Nonlinear Dynamics and Chaos*, 2nd ed. Westview Press.
-- Abarbanel, H. D. I. (1996). *Analysis of Observed Chaotic Data*. Springer.
-- Hegger, R., Kantz, H., & Schreiber, T. (1999). "Practical implementation of nonlinear time series methods: The TISEAN package." *Chaos*, 9(2), 413–435.
-
-No single paper or textbook presents the four-bin classification as a unified diagnostic pipeline. The pipeline is assembled from the above components.
-
-### E-value composition is valid across heterogeneous experiments
-
-The product of independent e-values is a valid e-value (Vovk & Wang, 2021; Grünwald et al., 2024). V2 demonstrated that composed e-value trajectories recover shared periodic dynamics with 3.4× the power of standardized-sum aggregation, via Fisher information weighting.
-
-- Vovk, V., & Wang, R. (2021). "E-values: Calibration, combination, and applications." *Ann. Statist.*, 49(3), 1736–1754.
-- Grünwald, P., de Heide, R., & Koolen, W. M. (2024). "Safe testing." *J. R. Stat. Soc. B*, 86(5), 1091–1128.
-- Ramdas, A., Grünwald, P., Vovk, V., & Shafer, G. (2023). "Game-theoretic statistics and safe anytime-valid inference." *Statist. Sci.*, 38(4), 576–601.
+The product of independent e-values is a valid e-value (Vovk & Wang, 2021; Grünwald et al., 2024). V2 demonstrated 3.4× power advantage of composed e-values over standardized sums for periodicity detection, via Fisher information weighting.
 
 ## What this experiment tests
 
-The affine transform argument guarantees that single-stream classification is invariant. But composed e-value trajectories are **not** an affine transform of any single raw stream — they are sums of nonlinearly-transformed heterogeneous signals. V2 showed composition works for oscillation detection (periodograms). This experiment tests whether it works for all four bins.
+Composed e-value trajectories are not an affine transform of any single raw stream. V2 showed composition works for oscillation. This experiment tests whether it works for all four forcing patterns, using a single hierarchical classifier that assigns exactly one label per trajectory.
 
-## Claim 5: Four-bin classification on composed e-value trajectories
+## Claim 5: Hierarchical forcing-pattern classification
 
-**Question:** When K heterogeneous experiments share a common dynamical regime, does the composed e-value trajectory classify correctly into convergent, divergent, oscillatory, or chaotic — and does composition improve detection over individual streams?
+**Question:** When K heterogeneous experiments share a common forcing pattern, does a hierarchical classifier on the composed e-value trajectory correctly identify the pattern — and does composition improve classification over individual streams?
 
 ### Hypotheses
 
-- **H0:** All K streams follow their null distributions (no shared dynamics).
-- **H1-converge:** Each stream has a shared perturbation that decays exponentially (mean reverts to null).
-- **H1-diverge:** Each stream has a shared trend (mean drifts linearly).
-- **H1-oscillate:** Each stream has a shared periodic forcing (reuse V2 setup, period T=500).
-- **H1-chaos:** Each stream is driven by a shared chaotic forcing (logistic map, Lorenz x-component, or Rössler).
+- **H0:** All K streams follow their null distributions (no shared forcing).
+- **H1-diverge:** Shared linear drift in all streams' means.
+- **H1-converge:** Shared exponential decay (perturbation returns to baseline).
+- **H1-oscillate:** Shared periodic forcing (reuse V2 setup, period T=500).
+- **H1-chaos:** Shared chaotic forcing from a logistic map.
 
-### Design
+### Streams
 
-K=5 streams, same distributions as V2 (Normal, Poisson, Exponential, Bernoulli, Lognormal). Same fixed alternatives, same null parameters. N=10,000 observations. 100 replications per condition.
+K=5 streams, same distributions and fixed alternatives as V2 (Normal, Poisson, Exponential, Bernoulli, Lognormal). N=10,000 observations.
 
-The shared forcing differs by regime:
+### Forcing generators
 
-| Regime | Forcing on stream k's mean | Parameters |
+| Pattern | Forcing on stream k's mean | Parameters |
 |---|---|---|
 | Null | None (constant at null) | — |
-| Convergence | A_k · exp(-t/τ) | τ = 2000 (slow decay) |
-| Divergence | A_k · t/N | Linear ramp, amplitude A_k |
-| Oscillation | A_k · sin(2πt/T) | T=500, reuse V2 |
-| Chaos | A_k · z_t (shared logistic map) | z_{t+1} = r·z_t·(1−z_t), r=3.9 |
+| Divergence | A_k · (t/N − 0.5) | Centered linear ramp |
+| Convergence | A_k · exp(−t/τ) | τ = 2000, decays toward null |
+| Oscillation | A_k · sin(2πt/T) | T = 500, reuse V2 |
+| Chaos | A_k · z̃_t (standardized logistic map) | r = 3.9, z̃ = (z − mean)/std after 1000-step burn-in |
 
-Amplitudes A_k calibrated per stream so individual detection is unreliable (below threshold), same methodology as V2.
+Chaos forcing: discard first 1000 iterates. Standardize z̃_t to zero mean and unit variance. Vary z_0 per replication (z_0 = 0.1 + 0.008·rep) to produce distinct chaotic trajectories, not just noise replications on a single trajectory.
 
-For chaos: the logistic map at r=3.9 produces bounded aperiodic dynamics with positive Lyapunov exponent (ln 2 ≈ 0.693 at r=4; slightly lower at r=3.9). The shared z_t sequence drives all five streams' means, creating correlated chaotic modulation. Each stream adds its own distribution-specific noise.
+Data generation uses log/logit links (same as V2) to keep parameters valid.
 
-### Classifiers
+### Amplitude calibration (locked)
 
-Per-stream and composed, apply all four detection methods:
+Calibration uses a separate seed range (seeds 90000–90099, 100 reps) from evaluation (seeds 99999+, 100 reps).
 
-| Method | Target bin | Implementation |
-|---|---|---|
-| Largest Lyapunov exponent (Rosenstein) | Chaos (+) vs convergence (−) | Embedding dimension via false nearest neighbors, lag via mutual information |
-| 0-1 test (Gottwald & Melbourne) | Chaos (K≈1) vs regular (K≈0) | Implementation per Gottwald & Melbourne (2009) |
-| Periodogram peak/median ratio | Oscillation (high) vs noise (low) | Same as V1/V2, threshold from null calibration |
-| Mann-Kendall trend test | Divergence (significant trend) vs stationary (no trend) | Two-sided, α=0.05 |
+Procedure:
+1. For each forcing pattern and each stream, sweep amplitudes.
+2. Select the smallest A_k where the median individual-stream detection statistic is between the null 75th and 90th percentile (below reliable detection but above floor).
+3. Freeze all amplitudes before running evaluation reps.
+4. Do not recalibrate on evaluation data.
 
-### Composition
+### Preprocessing
 
-Same as V2: log(E_composed,t) = Σ_k log(e_t^(k)). Also compute standardized-sum baseline for comparison.
+Applied to each trajectory before computing features:
+
+1. Winsorize at 0.5% and 99.5%.
+2. Robust standardize: z_t = (x_t − median(x)) / (1.4826 · MAD(x)).
+3. First differences: dx_t = z_t − z_{t−1}.
+
+### Feature vector
+
+Computed on the preprocessed trajectory z_t:
+
+| Feature | Definition |
+|---|---|
+| S | Theil-Sen slope of z_t vs t, scaled by MAD(dx) |
+| Z_MK | Mann-Kendall trend z-score |
+| ρ_env | Theil-Sen slope of log(rolling RMS envelope), window w=500 |
+| E_ratio | RMS(z, last 20%) / RMS(z, first 20%) |
+| G_spec | Max multitaper spectral peak / total spectral power |
+| Q_spec | Peak frequency / spectral bandwidth (quality factor) |
+| K_01 | Median 0-1 chaos statistic over 100 random c ∈ (π/5, 4π/5) |
+| LLE | Rosenstein largest Lyapunov exponent estimate |
+| PE | Normalized permutation entropy, order m=5 |
+
+### Hierarchical decision rule
+
+Labels are not symmetric. Divergence and oscillation can fool chaos statistics. Check simpler patterns first, assign the most conservative chaos label last.
+
+```
+1. DIVERGENT
+   if |S| > q99(null) AND |Z_MK| > 2.58
+   AND |median(last 10%) − median(first 10%)| > 3·MAD(dx)
+   → divergent
+
+2. CONVERGENT
+   if ρ_env < q01(null)
+   AND E_ratio < q05(null)
+   AND |median(last 20%) − baseline| < 1·MAD(z)
+   → convergent
+
+3. OSCILLATORY
+   if G_spec > q99(null) AND Q_spec > 5
+   AND dominant period has ≥ 8 observed cycles in N
+   → oscillatory
+
+4. CHAOTIC
+   if K_01 > 0.8
+   AND LLE > q99(null)
+   AND PE ∈ [0.55, 0.95]
+   AND not already classified above
+   → chaotic
+
+5. OTHERWISE → null
+```
+
+All q_XX(null) thresholds computed from 1000 null-calibration replications (seeds 80000–80999). Evaluation replications (seeds 99999+) are disjoint.
+
+### Baselines
+
+For each condition, run the same hierarchical classifier on:
+1. Each individual stream's log(e_t) — 5 individual classifications per rep
+2. Composed log-e-value — the method under test
+3. Standardized raw-data sum — z-score each stream, sum, apply same classifier
+4. Best individual stream — the stream with highest detection statistic, per rep
 
 ### Predictions
 
-1. **Convergence:** Individual streams' Lyapunov exponents are indistinguishable from null (weak signal). Composed trajectory has a more negative Lyapunov exponent (or lower variance in the estimate) than individual streams.
-2. **Divergence:** Individual Mann-Kendall tests detect the trend in <50% of reps. Composed Mann-Kendall detects in >90%.
-3. **Oscillation:** Replicates V2 result. Individual periodogram detection <35%. Composed >90%.
-4. **Chaos:** Individual 0-1 test scores are ambiguous (K between 0.3–0.7). Composed 0-1 test gives K > 0.9 in >80% of reps. Composed Lyapunov exponent is positive and distinguishable from null.
-5. **Null:** All classifiers on composed trajectory return null/no-signal in >95% of reps (false positive control).
+1. **Divergence:** Individual Mann-Kendall detection <50% of reps. Composed >90%.
+2. **Convergence:** Individual envelope-decay detection <50%. Composed >85%.
+3. **Oscillation:** Replicates V2. Individual <35%. Composed >90%.
+4. **Chaos:** Individual 0-1 test ambiguous (K ∈ 0.3–0.7). Composed K > 0.8 in >70% of reps. This is the weakest prediction — chaotic forcing may not survive noise compression.
+5. **Null:** Per-method false positive rate <5%. Overall misclassification rate <10%.
+6. **Confusion matrix:** Composed classifier achieves macro-F1 > 0.8 across all five labels. Standardized sum achieves lower macro-F1 (replicating V2's Fisher information advantage).
 
 ### Falsification
 
-- If composed trajectories fail to classify correctly in ≥2 of the 4 bins, composition does not generalize beyond oscillation detection.
-- If standardized sums match or exceed composed e-values across all bins, the Fisher information advantage from V2 was specific to periodicity, not general.
-- If chaos detection fails entirely on composed trajectories (K near 0.5, Lyapunov exponent indeterminate), the chaotic forcing may not survive the e-value transformation's noise compression.
+- If composed macro-F1 < 0.6, the classifier does not work on composed trajectories.
+- If standardized-sum macro-F1 equals or exceeds composed macro-F1, the Fisher information advantage from V2 does not generalize.
+- If chaos detection fails entirely (K_01 indeterminate on composed, <50% correct label), report as a negative result for that bin. The other three bins can still succeed independently.
+- If the classifier assigns the wrong label to >20% of reps for any non-null condition, that bin's generator or detector needs revision.
 
-### Null controls
+### Null calibration
 
-Run all five streams under global null (no shared forcing), 100 replications. Report per-method false positive rates for individual and composed signals. Compute empirical null thresholds for each classifier.
+1000 replications under global null (seeds 80000–80999). Compute per-feature null distributions. Set thresholds at the quantiles specified in the decision rule. Report null false positive rates per branch of the decision tree.
 
 ### What this does not test
 
-- **Multi-round loop:** Classify → generate hypothesis → run next experiment → classify again. Whether this converges on causal structure is a separate experiment.
+- **Multi-round loop:** Classify → generate hypothesis → test again. Deferred.
 - **Correlated streams:** Independence assumed, same as V2.
-- **Unknown regime:** The experiment assigns a known regime to each condition. A blind classifier that determines the regime from the trajectory without knowing the ground truth is deferred.
-- **Mixed regimes:** Systems that transition between bins (e.g., oscillation → chaos via bifurcation) are not tested.
+- **Mixed regimes / transitions:** Systems that change bin mid-stream (e.g., oscillation → chaos via bifurcation).
+- **Intrinsic dynamics:** The generators inject external forcing, not autonomous dynamical systems. The classifier detects forcing patterns, not the generating mechanism.
 
 ### Experiment parameters
 
 - N = 10,000 observations per stream per replication
 - K = 5 streams
-- 100 replications per condition (5 conditions: null, converge, diverge, oscillate, chaos)
-- 100 null replications for threshold calibration
-- Base seed: 42
-- Logistic map: r = 3.9, z_0 = 0.4
+- 1000 null-calibration reps (seeds 80000–80999)
+- 100 amplitude-calibration reps (seeds 90000–90099)
+- 100 evaluation reps per condition (seeds 99999+, 5 conditions)
+- Logistic map: r = 3.9, z_0 varied per rep, 1000-step burn-in, standardized
 - Decay time constant: τ = 2000
 - Oscillation period: T = 500
-- Per-stream amplitudes: to be calibrated before running (target: individual detection <35%)
+- Per-stream amplitudes: frozen after calibration phase
 
 ### Outputs
 
-- `results/tables/fourbin.csv` — per-replication summary: condition, rep, signal (individual/composed/standardized), method, test statistic, classification label
-- `results/plots/fourbin_detection.png` — detection rates by condition × method × signal type
-- `results/plots/fourbin_lyapunov.png` — Lyapunov exponent distributions by condition (individual vs composed)
-- `results/plots/fourbin_01test.png` — 0-1 test K distributions by condition
+- `results/tables/fourbin.csv` — per-rep: condition, signal type, feature values, assigned label
+- `results/tables/fourbin_confusion.csv` — 5×5 confusion matrices for each signal type
+- `results/plots/fourbin_confusion.png` — heatmap confusion matrices (composed vs individual vs standardized)
+- `results/plots/fourbin_features.png` — feature distributions by condition (violin plots)
+- `results/plots/fourbin_01test.png` — K_01 distributions by condition
 
 ### References
 
 Abarbanel, H. D. I. (1996). *Analysis of Observed Chaotic Data*. Springer.
 
-Dickey, D. A., & Fuller, W. A. (1979). "Distribution of the estimators for autoregressive time series with a unit root." *JASA*, 74(366), 427–431.
+Falconer, I., Gottwald, G. A., Melbourne, I., & Wormnes, K. (2007). "Application of the 0-1 test for chaos to experimental data." *SIAM J. Appl. Dyn. Syst.*, 6(2), 395–402.
 
 Gottwald, G. A., & Melbourne, I. (2004). "A new test for chaos in deterministic systems." *Proc. R. Soc. Lond. A*, 460, 603–611.
 
@@ -166,3 +203,5 @@ Strogatz, S. H. (2014). *Nonlinear Dynamics and Chaos*, 2nd ed. Westview Press.
 Vovk, V., & Wang, R. (2021). "E-values: Calibration, combination, and applications." *Ann. Statist.*, 49(3), 1736–1754.
 
 Wolf, A., Swift, J. B., Swinney, H. L., & Vastano, J. A. (1985). "Determining Lyapunov exponents from a time series." *Physica D*, 16(3), 285–317.
+
+Zanin, M., & Olivares, F. (2021). "Ordinal patterns-based methodologies for distinguishing chaos from noise in discrete time series." *Commun. Phys.*, 4, 190.
