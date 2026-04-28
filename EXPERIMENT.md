@@ -151,6 +151,24 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 **Multiple comparisons:** Across all claims, 5 DGP conditions × 3 regime variants × 2 detection methods × 3 λ values = ~90 tests. Apply Bonferroni correction (α = 0.05/90 ≈ 0.0006) to all significance tests. Report both corrected and uncorrected p-values.
 
+## Parallelization
+
+The conditions are independent — no condition's output feeds into another's input. All 100 replications per condition are independent (different seeds).
+
+**Level 1: across conditions.** Conditions (a)–(i) can all generate and analyze in parallel. Seven processes, no synchronization needed until the final comparison.
+
+**Level 2: across replications.** Within each condition, all 100 replications are embarrassingly parallel. Each replication gets seed = condition_id × 1000 + replication_index.
+
+**Level 3: across claims.** Claims 1 and 2 share the same generated data and e-value trajectories. Generate once, analyze twice. Claim 3 uses different DGPs (f, g, h) and can run fully in parallel with Claims 1–2.
+
+**Dependency graph:**
+1. `generate_synthetic.py` — all conditions in parallel (7 × 100 = 700 independent runs)
+2. `compute_evalues.py` — reads generated data, embarrassingly parallel per replication
+3. `spectral_analysis.py` + `classify_shape.py` + `detect_regime.py` — all read computed e-values, no dependencies between them, run in parallel
+4. `report.md` — waits for everything, sequential
+
+Steps 1–2 are the bottleneck. Steps 3 are free once 2 finishes. Step 4 is minutes.
+
 ## Implementation order
 
 1. `generate_synthetic.py` — produce all conditions (a)–(h), with fixed seeds
