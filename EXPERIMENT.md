@@ -56,6 +56,8 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 ### Claim 1: Cyclic systems produce oscillating e-value trajectories
 
+**Question:** Does the periodogram of an e-value trajectory show a spectral peak at the system's cycle period, distinguishable from noise, autocorrelation, and random regime switching?
+
 **N = 10,000 observations for all conditions.**
 
 **Setup — five DGPs:**
@@ -92,6 +94,8 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 ### Claim 2: Trajectory shape classifies faster than threshold crossing
 
+**Question:** Does a spectral classifier on the e-value trajectory identify cyclic systems earlier than a standard e-value threshold test identifies the presence of an effect?
+
 **Setup:**
 - Same five conditions, N=10,000.
 - Both classifiers output the same three labels: **reject null** (effect detected), **periodic** (cyclic dynamics detected), **null** (no effect). This ensures a common decision space.
@@ -112,6 +116,8 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 - Compare median stopping times across 100 replications. Report interquartile range and variance.
 
 ### Claim 3: Regime changes in the system appear as regime changes in the evidence
+
+**Question:** When the data-generating process switches regime mid-stream, does the slope of log(E_t) change detectably within 500 observations of the true switch point?
 
 **Setup:**
 - Generate N=10,000 observations with a regime switch at t=5,000:
