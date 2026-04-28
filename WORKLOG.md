@@ -29,4 +29,8 @@ Full trail. Every decision, every failed attempt, every fork in the analysis. Pu
 
 **Analytical proofs (same day).** Separated provable claims from empirical ones in PROOFS.md. Four lemmas: periodic μ → periodic evidence, regime switch → slope sign flip, stationary → flat periodogram, AR(1) → broad spectrum. The experiments now only test what the math can't answer: detection power in finite samples.
 
-**Status:** prereg is converging. No implementation yet. Next: one more codex volley, then implement `src/generate.py`.
+**Prereg v6–v9 (same day).** Three more codex volleys. AR(1) variance fix introduced a new problem (broke conditional variance assumption), reverted. Claim 2 reframed honestly as signal-surface comparison. AR(1) e-value i.i.d. misspecification documented as intentional.
+
+**Converged (round 8).** Codex: "internally consistent, cannot identify a remaining design flaw." Eight rounds total. Ready to implement.
+
+**Status:** prereg converged. Next: implement `src/generate.py`.
