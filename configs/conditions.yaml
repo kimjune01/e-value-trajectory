@@ -12,8 +12,9 @@ conditions:
   d_ar1:
     label: "(d) AR(1) with drift"
     dgp: ar1
-    params: { phi: 0.9, c: 0.03, sigma: 1.0 }
+    params: { phi: 0.9, c: 0.03, sigma: 0.436 }
     # stationary mean = c/(1-phi) = 0.03/0.1 = 0.3
+    # sigma_innovation = sqrt(1-phi^2) ≈ 0.436, so marginal variance ≈ 1.0
 
   i_sinusoidal:
     label: "(i) Sinusoidal (no feedback)"
