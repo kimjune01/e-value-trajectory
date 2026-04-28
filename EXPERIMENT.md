@@ -8,6 +8,14 @@ We know the ground truth for all conditions. This is not a prospective study. We
 
 Audited against [june.kim/prereg-audit](https://june.kim/prereg-audit). Gaps identified and addressed inline.
 
+## Escape hatches
+
+**Programming errors.** If a sanity check fails (e.g., E_t under condition (c) trends positive instead of negative, or Lotka-Volterra diverges to infinity), the bug is in the implementation, not the thesis. Fix the code, re-run from scratch, log the fix in WORKLOG.md. A code fix is not a protocol change. The distinction: fixing a bug that prevents the experiment from running is maintenance; changing the DGP, the classifier, or the success criterion after seeing results is p-hacking.
+
+**Futility.** If after implementing conditions (a)–(c), the periodogram of condition (b) shows no detectable peak above the noise floor of condition (c), stop. The mechanism doesn't work empirically even though the math says it should. Diagnose: is N too small? Is λ too far from the current μ(t) for too long? Is the Lotka-Volterra period too long relative to N? Log the diagnosis in WORKLOG.md and either (1) adjust a single parameter with justification and re-run (logged as a new experiment, not a revision of the original), or (2) report the negative result.
+
+**Scope reduction.** If Claim 1 fails, Claims 2 and 3 are moot. Don't run them. Report Claim 1's failure and the diagnosis. Partial results are results.
+
 ## The mechanism (Hume Q4)
 
 The e-value at each step is e_t = exp(λX_t - λ²/2). The expected log-evidence per step is:
