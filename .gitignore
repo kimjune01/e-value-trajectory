@@ -1,0 +1,11 @@
+data/
+*.csv
+*.parquet
+*.json
+!sources.json
+*.pkl
+*.h5
+__pycache__/
+.venv/
+*.egg-info/
+.ipynb_checkpoints/
