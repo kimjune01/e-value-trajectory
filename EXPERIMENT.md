@@ -63,6 +63,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 **Setup — five DGPs:**
 - **(a) Stationary effect**: i.i.d. draws from N(μ=0.3, σ=1). True effect, no dynamics.
+- **(i) Sinusoidal effect (no feedback)**: μ(t) = 0.3 × sin(2πt/500). Deterministic time-varying parameter, no feedback (X_t doesn't influence future μ). Sanity check: does the lemma survive finite-sample noise? If the periodogram fails here, it can't work on anything harder.
 - **(b) Deterministic feedback cycle (Lotka-Volterra)**: discretized predator-prey system (Euler, dt=0.01). Parameters: α=1.0, β=0.1, δ=0.075, γ=1.5, initial (x₀, y₀) = (10, 5). X_t is noisy observation of prey population: X_t = x_t + ε, ε ~ N(0, 1). Expected emergent period ≈ 500 steps. If actual period < 100 or > 2000, adjust parameters per escape hatch and log as new experiment.
 - **(b2) Stochastic feedback cycle (stochastic Lotka-Volterra)**: same parameters as (b), but with process noise added to the dynamics: dx = (αx - βxy)dt + σ_x · x · dW₁, dy = (δxy - γy)dt + σ_y · y · dW₂. Process noise σ_x = σ_y = 0.05. The period, amplitude, and phase all wander. X_t = x_t + ε, ε ~ N(0, 1). This is the fair test: can the diagnostic detect a noisy cycle where the period itself is stochastic?
 - **(c) Null**: i.i.d. draws from N(0, 1). No effect.
@@ -75,6 +76,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 **Prediction:**
 - (a) log(E_t) grows linearly. Periodogram of Δlog(E_t) shows no peak.
+- (i) log(E_t) oscillates. Periodogram of Δlog(E_t) shows a sharp peak at period 500. This is the lemma validated empirically — if this fails, the experiment has a bug.
 - (b) log(E_t) oscillates. Periodogram of Δlog(E_t) shows a sharp peak at the emergent Lotka-Volterra period.
 - (b2) log(E_t) oscillates with a broader, noisier peak in the periodogram. Peak should still be detectable but wider than (b)'s. If the peak vanishes entirely, the diagnostic fails on stochastic cycles.
 - (c) log(E_t) trends negative. Periodogram flat.
@@ -82,7 +84,8 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 - (e) log(E_t) shows regime-dependent growth/shrinkage. Periodogram shows no clean peak (random switching, not periodic).
 
 **Falsification:**
-- If (b) and (c) produce indistinguishable periodograms (TOST equivalence on peak height, margin d = 0.2), the thesis is wrong even for deterministic cycles.
+- If (i) and (c) produce indistinguishable periodograms, the lemma doesn't survive noise and the experiment has a bug or N is too small.
+- If (i) passes but (b) and (c) are indistinguishable, emergent feedback cycles are harder to detect than injected ones — the thesis needs qualification.
 - If (b) passes but (b2) is indistinguishable from (c), the diagnostic only works on deterministic systems and is not useful for real feedback systems where the period wanders.
 - If (d) produces a periodogram peak comparable to (b), autocorrelation confounds the diagnostic.
 - If (e) produces a clean peak, the diagnostic can't distinguish periodic from random switching.
