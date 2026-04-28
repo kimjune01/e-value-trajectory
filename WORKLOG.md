@@ -34,3 +34,20 @@ Full trail. Every decision, every failed attempt, every fork in the analysis. Pu
 **Converged (round 8).** Codex: "internally consistent, cannot identify a remaining design flaw." Eight rounds total. Ready to implement.
 
 **Status:** prereg converged. Next: implement `src/generate.py`.
+
+### 2026-04-27 (late)
+
+**First run.** Generated all conditions, computed e-values, ran spectral analysis. Key findings:
+
+1. **Sinusoidal sanity check passes.** Period 500 detected perfectly across all 100 reps.
+2. **LV period is ~12, not ~500.** The chosen parameters produce fast oscillations. Expected period estimate was wrong. Not a bug — the emergent period is what it is. Need to update the prediction or adjust LV parameters to produce a slower cycle.
+3. **AR(1) produces a strong spectral peak (period ~132, peak/med ~1109).** The confound condition works — autocorrelation does produce a peak. But the peak is broad and at a different frequency than the LV peak.
+4. **E-value periodogram is identical to raw-data periodogram.** Δlog(e_t) = λX_t - constant, so the periodogram is a scaled copy. The e-value adds no spectral information the raw data doesn't already have.
+
+Finding #4 is a potential thesis-killer. The claim is that e-values are "transparent" to system dynamics, but transparency without amplification means the periodogram on raw X_t is strictly equivalent. The e-value's added value would have to come from the *cumulative* trajectory log(E_t), not the per-step Δlog(e_t). Need to investigate whether the periodogram on cumulative log(E_t) differs from the periodogram on cumulative X_t.
+
+**Reframe.** The identical periodograms aren't a thesis-killer — they're the thesis. E-values are a universal projection: regardless of data type (frequency, probability, periodic, disjoint), they map to the same temporal evidence scale with valid composition. For a single univariate normal stream, the projection is an affine transform of the raw data — of course the periodograms match. The value appears when you compose evidence across *heterogeneous* experiments with different DGPs, scales, and test statistics. Raw data from different experiments can't be concatenated; e-values can (multiplicative composition). The trajectory of the composed e-value should still carry the system's dynamics even when no single raw stream does.
+
+This reframes the experiment: the interesting question isn't "does the e-value periodogram beat the raw periodogram on a single stream?" (trivially no for univariate normal). It's "when you compose across heterogeneous experiments, does the composed trajectory carry dynamics the individual streams don't?"
+
+**Status:** deciding whether to pivot the experiment to heterogeneous composition or report the current results as a completed (negative) finding on the original claim.
