@@ -32,7 +32,7 @@ Composed e-value trajectories are not an affine transform of any single raw stre
 - **H1-diverge:** Shared linear drift in all streams' means.
 - **H1-converge:** Shared exponential decay (perturbation returns to baseline).
 - **H1-oscillate:** Shared periodic forcing (reuse V2 setup, period T=500).
-- **H1-chaos:** Shared chaotic forcing from a logistic map.
+- **H1-aperiodic:** Shared aperiodic forcing from a logistic map.
 
 ### Streams
 
@@ -46,7 +46,7 @@ K=5 streams, same distributions and fixed alternatives as V2 (Normal, Poisson, E
 | Divergence | A_k · (t/N − 0.5) | Centered linear ramp |
 | Convergence | A_k · exp(−t/τ) | τ = 2000, decays toward null |
 | Oscillation | A_k · sin(2πt/T) | T = 500, reuse V2 |
-| Chaos | A_k · z̃_t (standardized logistic map) | r = 3.9, z̃ = (z − mean)/std after 1000-step burn-in |
+| Aperiodic | A_k · z̃_t (standardized logistic map) | r = 3.9, z̃ = (z − mean)/std after 1000-step burn-in |
 
 Chaos forcing: discard first 1000 iterates. Standardize z̃_t to zero mean and unit variance. Vary z_0 per replication (z_0 = 0.1 + 0.008·rep) to produce distinct chaotic trajectories, not just noise replications on a single trajectory.
 
@@ -72,52 +72,70 @@ Applied to each trajectory before computing features:
 
 ### Feature vector
 
-Computed on the preprocessed trajectory z_t:
+Computed on the preprocessed trajectory z_t (not dx_t; first differences are used only for MAD(dx) scaling):
 
 | Feature | Definition |
 |---|---|
 | S | Theil-Sen slope of z_t vs t, scaled by MAD(dx) |
 | Z_MK | Mann-Kendall trend z-score |
+| R_curve | Curvature ratio: RSS(exponential fit) / RSS(linear fit) on z_t. R < 1 → decelerating (convergence-like). R > 1 → accelerating or constant (divergence-like). |
 | ρ_env | Theil-Sen slope of log(rolling RMS envelope), window w=500 |
 | E_ratio | RMS(z, last 20%) / RMS(z, first 20%) |
 | G_spec | Max multitaper spectral peak / total spectral power |
 | Q_spec | Peak frequency / spectral bandwidth (quality factor) |
 | K_01 | Median 0-1 chaos statistic over 100 random c ∈ (π/5, 4π/5) |
-| LLE | Rosenstein largest Lyapunov exponent estimate |
 | PE | Normalized permutation entropy, order m=5 |
 
-### Hierarchical decision rule
+Baseline is defined as zero after robust standardization (step 2 of preprocessing).
 
-Labels are not symmetric. Divergence and oscillation can fool chaos statistics. Check simpler patterns first, assign the most conservative chaos label last.
+### Classification by kill conditions
+
+The classifier follows the proof-manual pattern: each test has a kill condition, and the failure mode names the next test. This avoids the branch-ordering problem (convergence and divergence are both monotone — a fixed hierarchy would swallow one into the other).
 
 ```
-1. DIVERGENT
-   if |S| > q99(null) AND |Z_MK| > 2.58
-   AND |median(last 10%) − median(first 10%)| > 3·MAD(dx)
-   → divergent
+Start: is the trajectory non-null?
 
-2. CONVERGENT
-   if ρ_env < q01(null)
-   AND E_ratio < q05(null)
-   AND |median(last 20%) − baseline| < 1·MAD(z)
-   → convergent
+TEST 1: Monotone trend
+  statistic: |Z_MK| > 2.58 (α = 0.01, two-sided)
+  if NO  → kill monotone hypothesis → go to TEST 3
+  if YES → go to TEST 2
 
-3. OSCILLATORY
-   if G_spec > q99(null) AND Q_spec > 5
-   AND dominant period has ≥ 8 observed cycles in N
-   → oscillatory
+TEST 2: Curvature (disambiguate convergence from divergence)
+  statistic: R_curve = RSS(exp fit) / RSS(linear fit)
+  kill condition: if R_curve ≈ 1 (within null CI), curvature is
+    indeterminate — the trajectory is monotone but we can't tell
+    whether it's decelerating or constant-rate.
+  if R_curve < q05(null) → CONVERGENT
+    (exponential fits better than linear: decelerating toward baseline)
+  if R_curve > q95(null) OR R_curve in null CI → DIVERGENT
+    (linear fits as well or better: constant or accelerating drift)
 
-4. CHAOTIC
-   if K_01 > 0.8
-   AND LLE > q99(null)
-   AND PE ∈ [0.55, 0.95]
-   AND not already classified above
-   → chaotic
+TEST 3: Periodicity
+  statistic: G_spec > q99(null) AND Q_spec > 5
+    AND dominant period has ≥ 8 observed cycles in N
+  kill condition: if spectral peak is broad (Q_spec < 5),
+    it's not periodic — could be colored noise or aperiodic.
+    → go to TEST 4
+  if YES → OSCILLATORY
 
-5. OTHERWISE → null
+TEST 4: Aperiodic structure
+  statistic: K_01 > 0.8 AND PE ∈ [0.55, 0.95]
+  kill condition: K_01 in [0.3, 0.7] is indeterminate — the 0-1
+    test can't distinguish low-dimensional chaos from colored
+    stochastic forcing at this SNR. PE outside [0.55, 0.95] suggests
+    either too regular (periodic residual) or too random (pure noise).
+  if BOTH pass → APERIODIC FORCING
+    (renamed from "chaotic" — we detect aperiodic deterministic
+    structure, not intrinsic chaos. See "What this does not test.")
+  if EITHER fails → NULL
+
+TEST 5: Catch-all
+  → NULL
 ```
 
-All q_XX(null) thresholds computed from 1000 null-calibration replications (seeds 80000–80999). Evaluation replications (seeds 99999+) are disjoint.
+Each test's kill condition is logged per replication. The kill-condition log is an output alongside the classification label — it records *why* a trajectory was classified the way it was, not just the label.
+
+All q_XX(null) thresholds computed from 1000 null-calibration replications (seeds 80000–80999). Fixed thresholds (Z_MK > 2.58, Q_spec > 5, K_01 > 0.8, PE range) are literature defaults: Z_MK from the standard normal (α = 0.01), Q_spec from spectral peak resolution conventions (Kantz & Schreiber, 2004, §6.2), K_01 from Gottwald & Melbourne (2009, §4), PE from Zanin & Olivares (2021, Fig. 2). Evaluation replications (seeds 99999+) are disjoint from calibration.
 
 ### Baselines
 
@@ -132,7 +150,7 @@ For each condition, run the same hierarchical classifier on:
 1. **Divergence:** Individual Mann-Kendall detection <50% of reps. Composed >90%.
 2. **Convergence:** Individual envelope-decay detection <50%. Composed >85%.
 3. **Oscillation:** Replicates V2. Individual <35%. Composed >90%.
-4. **Chaos:** Individual 0-1 test ambiguous (K ∈ 0.3–0.7). Composed K > 0.8 in >70% of reps. This is the weakest prediction — chaotic forcing may not survive noise compression.
+4. **Aperiodic forcing:** Individual 0-1 test ambiguous (K ∈ 0.3–0.7). Composed K > 0.8 in >70% of reps. This is the weakest prediction — chaotic forcing may not survive noise compression.
 5. **Null:** Per-method false positive rate <5%. Overall misclassification rate <10%.
 6. **Confusion matrix:** Composed classifier achieves macro-F1 > 0.8 across all five labels. Standardized sum achieves lower macro-F1 (replicating V2's Fisher information advantage).
 
@@ -140,7 +158,7 @@ For each condition, run the same hierarchical classifier on:
 
 - If composed macro-F1 < 0.6, the classifier does not work on composed trajectories.
 - If standardized-sum macro-F1 equals or exceeds composed macro-F1, the Fisher information advantage from V2 does not generalize.
-- If chaos detection fails entirely (K_01 indeterminate on composed, <50% correct label), report as a negative result for that bin. The other three bins can still succeed independently.
+- If aperiodic detection fails entirely (K_01 indeterminate on composed, <50% correct label), report as a negative result for that bin. The other three bins can still succeed independently.
 - If the classifier assigns the wrong label to >20% of reps for any non-null condition, that bin's generator or detector needs revision.
 
 ### Null calibration
@@ -168,11 +186,12 @@ For each condition, run the same hierarchical classifier on:
 
 ### Outputs
 
-- `results/tables/fourbin.csv` — per-rep: condition, signal type, feature values, assigned label
+- `results/tables/fourbin.csv` — per-rep: condition, signal type, feature values, assigned label, kill-condition log
 - `results/tables/fourbin_confusion.csv` — 5×5 confusion matrices for each signal type
+- `results/tables/fourbin_kills.csv` — kill-condition frequencies: how often each test killed, by condition
 - `results/plots/fourbin_confusion.png` — heatmap confusion matrices (composed vs individual vs standardized)
 - `results/plots/fourbin_features.png` — feature distributions by condition (violin plots)
-- `results/plots/fourbin_01test.png` — K_01 distributions by condition
+- `results/plots/fourbin_kills.png` — kill-condition flow diagram: where trajectories exit the decision tree
 
 ### References
 
