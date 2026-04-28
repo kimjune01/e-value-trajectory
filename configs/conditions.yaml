@@ -12,22 +12,29 @@ conditions:
   d_ar1:
     label: "(d) AR(1) with drift"
     dgp: ar1
-    params: { phi: 0.9, c: 0.3, sigma: 1.0 }
+    params: { phi: 0.9, c: 0.03, sigma: 1.0 }
+    # stationary mean = c/(1-phi) = 0.03/0.1 = 0.3
 
   i_sinusoidal:
     label: "(i) Sinusoidal (no feedback)"
     dgp: sinusoidal
-    params: { amplitude: 0.3, period: 500, sigma: 1.0 }
+    params: { offset: 0.3, amplitude: 0.3, period: 500, sigma: 1.0 }
+    # mu(t) = 0.3 + 0.3*sin(2πt/500), oscillates between 0 and 0.6, mean 0.3
 
   b_lotka_volterra:
     label: "(b) Deterministic Lotka-Volterra"
     dgp: lotka_volterra
     params: { alpha: 1.0, beta: 0.1, delta: 0.075, gamma: 1.5, x0: 10, y0: 5, dt: 0.01, obs_sigma: 1.0, process_sigma: 0.0 }
+    # NOTE: observations are centered and scaled at generation time.
+    # X_t = (x_t - x̄) / s_x + 0.3, where x̄ and s_x are computed from
+    # a burn-in run. This puts the mean at 0.3 and the oscillation
+    # amplitude at O(1), matching the other conditions' scale.
 
   b2_stochastic_lv:
     label: "(b2) Stochastic Lotka-Volterra"
     dgp: lotka_volterra
     params: { alpha: 1.0, beta: 0.1, delta: 0.075, gamma: 1.5, x0: 10, y0: 5, dt: 0.01, obs_sigma: 1.0, process_sigma: 0.05 }
+    # Same centering/scaling as (b), using burn-in from deterministic run
 
   e_regime_switching:
     label: "(e) Regime-switching"

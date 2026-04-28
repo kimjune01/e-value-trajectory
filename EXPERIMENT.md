@@ -63,11 +63,11 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 **Setup — five DGPs:**
 - **(a) Stationary effect**: i.i.d. draws from N(μ=0.3, σ=1). True effect, no dynamics.
-- **(i) Sinusoidal effect (no feedback)**: μ(t) = 0.3 × sin(2πt/500). Deterministic time-varying parameter, no feedback (X_t doesn't influence future μ). Sanity check: does the lemma survive finite-sample noise? If the periodogram fails here, it can't work on anything harder.
-- **(b) Deterministic feedback cycle (Lotka-Volterra)**: discretized predator-prey system (Euler, dt=0.01). Parameters: α=1.0, β=0.1, δ=0.075, γ=1.5, initial (x₀, y₀) = (10, 5). X_t is noisy observation of prey population: X_t = x_t + ε, ε ~ N(0, 1). Expected emergent period ≈ 500 steps. If actual period < 100 or > 2000, adjust parameters per escape hatch and log as new experiment.
+- **(i) Sinusoidal effect (no feedback)**: μ(t) = 0.3 + 0.3 × sin(2πt/500). Oscillates between 0 and 0.6, mean 0.3 (matching condition (a)'s mean). Deterministic time-varying parameter, no feedback (X_t doesn't influence future μ). Sanity check: does the lemma survive finite-sample noise? If the periodogram fails here, it can't work on anything harder.
+- **(b) Deterministic feedback cycle (Lotka-Volterra)**: discretized predator-prey system (Euler, dt=0.01). Parameters: α=1.0, β=0.1, δ=0.075, γ=1.5, initial (x₀, y₀) = (10, 5). Observations centered and scaled from a burn-in run: X_t = (x_t - x̄)/s + 0.3 + ε, ε ~ N(0, 1). This puts the mean at 0.3 and the oscillation amplitude at O(1), matching the other conditions. Expected emergent period ≈ 500 steps. If actual period < 100 or > 2000, adjust parameters per escape hatch and log as new experiment.
 - **(b2) Stochastic feedback cycle (stochastic Lotka-Volterra)**: same parameters as (b), but with process noise added to the dynamics: dx = (αx - βxy)dt + σ_x · x · dW₁, dy = (δxy - γy)dt + σ_y · y · dW₂. Process noise σ_x = σ_y = 0.05. The period, amplitude, and phase all wander. X_t = x_t + ε, ε ~ N(0, 1). This is the fair test: can the diagnostic detect a noisy cycle where the period itself is stochastic?
 - **(c) Null**: i.i.d. draws from N(0, 1). No effect.
-- **(d) AR(1) with drift**: X_t = 0.9·X_{t-1} + 0.3 + ε_t, ε ~ N(0,1). Autocorrelated, mean-reverting, no explicit cycle. Tests whether autocorrelation alone produces oscillation artifacts.
+- **(d) AR(1) with drift**: X_t = 0.9·X_{t-1} + 0.03 + ε_t, ε ~ N(0,1). Stationary mean = 0.03/0.1 = 0.3, matching condition (a). Autocorrelated, mean-reverting, no explicit cycle. Tests whether autocorrelation alone produces oscillation artifacts.
 - **(e) Regime-switching**: hidden Markov model with two states (μ=0.3 and μ=-0.3), transition probability 0.005 per step. Random regime changes, not periodic.
 
 **E-value computation:**
@@ -76,7 +76,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 **Prediction:**
 - (a) log(E_t) grows linearly. Periodogram of Δlog(E_t) shows no peak.
-- (i) log(E_t) oscillates. Periodogram of Δlog(E_t) shows a sharp peak at period 500. This is the lemma validated empirically — if this fails, the experiment has a bug.
+- (i) log(E_t) grows (mean μ = 0.3, net positive drift) with oscillation superimposed. Periodogram of Δlog(E_t) shows a sharp peak at period 500. This is the lemma validated empirically — if this fails, the experiment has a bug.
 - (b) log(E_t) oscillates. Periodogram of Δlog(E_t) shows a sharp peak at the emergent Lotka-Volterra period.
 - (b2) log(E_t) oscillates with a broader, noisier peak in the periodogram. Peak should still be detectable but wider than (b)'s. If the peak vanishes entirely, the diagnostic fails on stochastic cycles.
 - (c) log(E_t) trends negative. Periodogram flat.
