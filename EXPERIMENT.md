@@ -57,6 +57,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 ### Claim 1: Cyclic systems produce oscillating e-value trajectories
 
 **Question:** Does the periodogram of an e-value trajectory show a spectral peak at the system's cycle period, distinguishable from noise, autocorrelation, and random regime switching?
+**In plain English:** If the thing you're studying goes in circles, can you see the circles in your evidence?
 
 **N = 10,000 observations for all conditions.**
 
@@ -95,6 +96,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 ### Claim 2: Trajectory shape classifies faster than threshold crossing
 
 **Question:** Does a spectral classifier on the e-value trajectory identify cyclic systems earlier than a standard e-value threshold test identifies the presence of an effect?
+**In plain English:** Does watching *how* the evidence moves tell you something faster than waiting for the evidence to pile up?
 
 **Setup:**
 - Same five conditions, N=10,000.
@@ -118,6 +120,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 ### Claim 3: Regime changes in the system appear as regime changes in the evidence
 
 **Question:** When the data-generating process switches regime mid-stream, does the slope of log(E_t) change detectably within 500 observations of the true switch point?
+**In plain English:** If the rules change halfway through, does your evidence notice?
 
 **Setup:**
 - Generate N=10,000 observations with a regime switch at t=5,000:
