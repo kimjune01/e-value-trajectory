@@ -270,3 +270,33 @@ The pre-registration specified time-indexed alternatives (θ_alt,t = θ₀ + A·
 ![Composition periodograms](results/plots/composition_periodograms.png)
 
 ![Composition trajectories](results/plots/composition_trajectories.png)
+
+---
+
+## What we learned
+
+### The experiment tested one thing and found another
+
+The original question was whether e-value trajectory shape is diagnostic of the underlying system. The answer is yes, trivially — because the e-value periodogram is an affine transform of the raw-data periodogram, it carries exactly the same spectral information. Detecting periodicity in e-value trajectories is just detecting periodicity. The spectral methods that do the work (periodograms, autocorrelation) are decades old. The e-value transformation doesn't amplify, attenuate, or reshape the signal. It passes it through.
+
+This means Claims 1–3, while empirically confirmed, don't establish a new capability. If you can detect a cycle in X_t, you can detect it in log(e_t), and vice versa. The diagnostic value of e-value trajectory shape, for a single stream, is zero beyond what the raw data already provides.
+
+### The one genuinely new finding
+
+Claim 4 showed that composing e-values across heterogeneous streams (different distributions, different scales, different noise profiles) recovers a shared periodic signal that no individual stream reliably detects — and does so 3.4× more powerfully than the naive alternative (standardized z-score sums). The 99% vs 29% detection gap is not a validity technicality. It's a power advantage that comes from the likelihood ratio naturally weighting each stream by its Fisher information.
+
+This result is a consequence of a known property (likelihood ratio optimality, Neyman-Pearson) applied to a context where it hasn't been demonstrated before (spectral detection of shared dynamics across heterogeneous experiments). The principle isn't new. The application is.
+
+### What this experiment did not test
+
+The blog post proposed a four-bin classification: converge, diverge, oscillate, chaos. This experiment only tested the "oscillate" bin using one tool (periodograms). The other three bins have their own established detection methods — Lyapunov exponents for chaos, trend tests for divergence, autocorrelation decay for convergence. Whether these methods work through the e-value transformation, and whether composition helps for those bins too, is untested.
+
+The more interesting open question isn't "can you classify trajectory shape?" (the tools exist) but "does composing e-values across heterogeneous experiments improve classification across all four bins?" Claim 4 showed it works for periodicity. Whether the Fisher-information weighting advantage extends to Lyapunov exponent estimation or trend detection on composed trajectories is a separate experiment.
+
+### How we got here
+
+Eight rounds of pre-registration review (codex) before writing a line of code. The pre-registration caught itself three times: two miscalibrated detection thresholds (spectral peak threshold 3→15, CUSUM h 5→20, both producing 100% false positive rates at original values) and one failed prediction (AR(1) confound produces a detectable spectral peak, contradicting the prediction that autocorrelation ≠ periodicity in a finite-sample periodogram).
+
+The composition experiment (Claim 4) caught itself once during implementation: time-indexed alternatives, recommended by codex review, produced harmonics at 2/T because the KL divergence is quadratic in the parameter perturbation. Fixed alternatives restored the fundamental. The pre-registered prediction that standardized sums would match composed e-values was also wrong — in the positive direction.
+
+Total: three pre-registered predictions failed (AR(1) no-peak, spectral-faster-than-threshold, standardized-sum equivalence), two parameter calibrations were wrong, one implementation approach was wrong. All documented. The experiment answered the questions it set out to answer, and the most interesting answer — that composition provides genuine power, not just valid bookkeeping — was not the one we expected.
