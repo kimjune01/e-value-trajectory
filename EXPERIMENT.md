@@ -95,23 +95,24 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 ### Claim 2: Trajectory shape classifies faster than threshold crossing
 
-**Question:** Does a spectral classifier on the e-value trajectory identify cyclic systems earlier than a standard e-value threshold test identifies the presence of an effect?
-**In plain English:** Does watching *how* the evidence moves tell you something faster than waiting for the evidence to pile up?
+**Question:** Does a spectral classifier on the e-value trajectory identify cyclic systems earlier than a standard e-value threshold test, and does e-value's variable-method flexibility outperform a fixed-model Bayesian sequential test?
+**In plain English:** Does the shape of your bet tell you something that the size of your bet doesn't?
 
 **Setup:**
 - Same five conditions, N=10,000.
-- Both classifiers output the same three labels: **reject null** (effect detected), **periodic** (cyclic dynamics detected), **null** (no effect). This ensures a common decision space.
-  - **Threshold classifier**: reject null when E_t > 20 (α=0.05). Labels "null" when log(E_t) slope is negative over a 500-observation window. Labels "periodic" never (it has no mechanism to detect periodicity). This is the baseline: a classifier that cannot diagnose cyclicity.
-  - **Spectral classifier**: sliding-window periodogram on Δlog(E_t) (window = 500, no knowledge of T). Labels "periodic" when peak power exceeds 3× median power. Labels "reject null" when slope of log(E_t) is consistently positive over a 500-observation window with no spectral peak. Labels "null" when slope is consistently negative.
+- All three classifiers output the same three labels: **reject null** (effect detected), **periodic** (cyclic dynamics detected), **null** (no effect).
+  - **Threshold classifier**: reject null when E_t > 20 (α=0.05). Labels "null" when log(E_t) slope is negative over a 500-observation window. Labels "periodic" never (no mechanism to detect periodicity). Baseline: can't diagnose cyclicity.
+  - **Bayesian sequential classifier**: online Bayesian posterior under a fixed N(0.3, 1) likelihood. Labels "reject null" when posterior P(μ > 0) > 0.95. Labels "null" when P(μ > 0) < 0.05. Labels "periodic" via sliding-window periodogram on the posterior mean trajectory (same spectral method as below, but on the posterior, not the e-value). Baseline: fixed model, can detect periodicity through the posterior.
+  - **Spectral e-value classifier**: sliding-window periodogram on Δlog(E_t) (window = 500, no knowledge of T). Labels "periodic" when peak power exceeds 3× median power. Labels "reject null" when slope of log(E_t) is consistently positive over a 500-observation window with no spectral peak. Labels "null" when slope is consistently negative.
 
 **Prediction:**
-- For condition (b), spectral classifier labels "periodic" before threshold classifier labels "reject null." The spectral classifier extracts more information (the *kind* of effect, not just its presence).
-- For condition (c), both classifiers reach "null" at similar times.
-- For conditions (a) and (d), threshold classifier labels "reject null" first (no periodicity to detect, spectral classifier has no advantage).
+- For condition (b), spectral e-value classifier labels "periodic" before threshold classifier labels "reject null," and at least as early as the Bayesian classifier labels "periodic."
+- For condition (c), all three classifiers reach "null" at similar times.
+- For conditions (a) and (d), threshold classifier labels "reject null" first (no periodicity to detect).
 
 **Falsification:**
-- If threshold classifier reaches "reject null" on condition (b) before spectral classifier reaches "periodic," trajectory analysis doesn't provide earlier diagnosis for cyclic systems.
-- If spectral classifier never labels (b) as "periodic" across 100 replications, it can't detect the cyclicity the thesis claims is visible.
+- If Bayesian classifier detects periodicity consistently earlier than the spectral e-value classifier, e-values add no advantage over standard Bayesian sequential testing for this task.
+- If spectral e-value classifier never labels (b) as "periodic" across 100 replications, it can't detect the cyclicity the thesis claims is visible.
 
 **Measurement:**
 - For each condition, record the observation index at which each classifier first commits to any label.
