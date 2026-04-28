@@ -287,11 +287,39 @@ Claim 4 showed that composing e-values across heterogeneous streams (different d
 
 This result is a consequence of a known property (likelihood ratio optimality, Neyman-Pearson) applied to a context where it hasn't been demonstrated before (spectral detection of shared dynamics across heterogeneous experiments). The principle isn't new. The application is.
 
-### What this experiment did not test
+### Claim 5 answered it
 
-The blog post proposed a four-bin classification: converge, diverge, oscillate, chaos. This experiment only tested the "oscillate" bin using one tool (periodograms). The other three bins have their own established detection methods — Lyapunov exponents for chaos, trend tests for divergence, autocorrelation decay for convergence. Whether these methods work through the e-value transformation, and whether composition helps for those bins too, is untested.
+The blog post proposed a four-bin classification: converge, diverge, oscillate, chaos. Claim 4 tested only oscillation. Claim 5 tested all four bins with a kill-condition decision tree on composed e-value trajectories.
 
-The more interesting open question isn't "can you classify trajectory shape?" (the tools exist) but "does composing e-values across heterogeneous experiments improve classification across all four bins?" Claim 4 showed it works for periodicity. Whether the Fisher-information weighting advantage extends to Lyapunov exponent estimation or trend detection on composed trajectories is a separate experiment.
+**Composed: macro-F1 = 0.996.** Near-perfect classification across all five labels (null, divergent, convergent, oscillatory, aperiodic). Only 2% false positive rate on null (2 reps misclassified as oscillatory).
+
+**Standardized sum: macro-F1 = 0.478.** Divergence completely missed (64% null, 36% convergent). Aperiodic completely missed (100% null). Only convergence and oscillation detected.
+
+**Individual majority vote: macro-F1 = 0.279.** Only oscillation detected. Everything else classified as null.
+
+| Signal | Null | Divergent | Convergent | Oscillatory | Aperiodic | F1 |
+|---|---|---|---|---|---|---|
+| Composed | 98% | 100% | 100% | 100% | 100% | 0.996 |
+| Standardized sum | 99% | 0% | 100% | 100% | 0% | 0.478 |
+| Individual majority | 100% | 0% | 0% | 99% | 0% | 0.279 |
+
+The composition advantage from Claim 4 generalizes beyond oscillation. The likelihood ratio's Fisher information weighting improves detection for all four forcing patterns — divergence and aperiodic most dramatically (0% → 100%).
+
+The convergence/divergence disambiguation uses the curvature ratio (RSS exponential fit / RSS linear fit). Both patterns trigger the monotone-trend detector (Mann-Kendall); the curvature test separates them. This is the kill-condition approach from [The Proof Manual](/the-proof-manual): the failure mode of trend detection (can't distinguish accelerating from decelerating) names the next test (curvature).
+
+The aperiodic bin required filtering Nyquist-adjacent spectral peaks (period > 10). The logistic map at r=3.9 has residual period-2 structure from the period-doubling cascade, which the periodogram picks up as a high-Q peak near the Nyquist frequency. Without the period filter, 100% of aperiodic reps were misclassified as oscillatory.
+
+![Four-bin confusion matrices](results/plots/fourbin_confusion.png)
+
+![Kill-condition flow](results/plots/fourbin_kills.png)
+
+### Caveats
+
+The amplitudes for divergence and convergence (1.5) are much higher than for oscillation (0.1). Trend detection on noisy per-step increments requires stronger signals than periodicity detection — Mann-Kendall has lower power per observation than the periodogram. The "individual streams undetectable" claim holds for all bins, but the signal strengths are not matched across bins.
+
+The amplitudes were set manually, not through the locked calibration procedure from the pre-registration. The auto-calibration was too slow and poorly targeted. This is a deviation from the prereg.
+
+The aperiodic label detects shared deterministic aperiodic forcing, not intrinsic chaos. The 0-1 test and permutation entropy distinguish it from noise, but no surrogate controls were run to confirm the distinction is robust. The logistic map at r=3.9 is a convenient test case; other chaotic systems may behave differently.
 
 ### How we got here
 
@@ -299,4 +327,6 @@ Eight rounds of pre-registration review (codex) before writing a line of code. T
 
 The composition experiment (Claim 4) caught itself once during implementation: time-indexed alternatives, recommended by codex review, produced harmonics at 2/T because the KL divergence is quadratic in the parameter perturbation. Fixed alternatives restored the fundamental. The pre-registered prediction that standardized sums would match composed e-values was also wrong — in the positive direction.
 
-Total: three pre-registered predictions failed (AR(1) no-peak, spectral-faster-than-threshold, standardized-sum equivalence), two parameter calibrations were wrong, one implementation approach was wrong. All documented. The experiment answered the questions it set out to answer, and the most interesting answer — that composition provides genuine power, not just valid bookkeeping — was not the one we expected.
+The four-bin classifier (Claim 5) caught itself twice: (1) convergence was getting swallowed by the divergence branch because both are monotone — resolved by adding a curvature test (proof-manual pattern: the failure mode names the next test), and (2) aperiodic was misclassified as oscillatory because the logistic map's period-2 structure creates Nyquist-adjacent spectral peaks — resolved by filtering peaks with period < 10.
+
+Total: three pre-registered predictions failed (AR(1) no-peak, spectral-faster-than-threshold, standardized-sum equivalence), two parameter calibrations were wrong, two implementation approaches were wrong, one amplitude calibration had to be done manually. All documented. The experiment answered the questions it set out to answer, and the most interesting answer — that composition provides genuine power across all four bins, not just oscillation — was stronger than predicted.

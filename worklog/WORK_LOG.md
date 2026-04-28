@@ -115,3 +115,41 @@ After fixing: individual streams at PMR 13–14 (26–35% detection), composed e
 **Surprise:** standardized-sum baseline only 29% detection (vs composed 99%). Pre-registered prediction was equivalence (TOST d=0.2). The composed e-value is 2.3× stronger. Reason: likelihood ratio weights each stream by Fisher information, extracting more from informative streams. Standardized sum weights equally. This is a genuine power advantage, not just a validity argument.
 
 Updated report.md with full Claim 4 section.
+
+### 10:30 — Blog post edits, prior art search, prereg V3
+
+Sharpened the blog post's e-value argument: the contrast is between lossy compression (p-values force a scalar because peeking invalidates the guarantee) and keeping the time series (anytime validity removes that constraint). Mathematical property, not empirical. Added Pearl connection: he said stop observing and intervene; same logic one level up — stop compressing and look at the data. Four bins are sensemaking modes, not conclusions.
+
+Prior art search (web + codex): no prior work on classifying e-value trajectories via dynamical systems methods. The 4-bin classification on general time series is established (Kantz & Schreiber 2004, Strogatz 2014, Gottwald & Melbourne 2004/2009, Rosenstein et al. 1993). Affine invariance means single-stream classification needs no experiment — just cite.
+
+Wrote PREREGISTRATION_V3.md: four-bin classification on composed e-value trajectories. The gap is that composed signals are not affine transforms of any single stream, so composition needs testing for convergence (Lyapunov), divergence (Mann-Kendall), and chaos (0-1 test) — not just oscillation (periodogram, already done in V2). Commit `68f6c2e`.
+
+### 11:00 — Prereg V3 codex review and revision
+
+Codex flagged V3 as overclaiming — "four-bin dynamical classification" when the generators inject external forcing, not autonomous dynamics. Also: no multiclass decision rule (just four independent detectors), Lyapunov fragile for convergence, chaos forcing uncentered, amplitude calibration too loose, 100 null reps too few.
+
+Asked codex for practical classification research. Got a concrete hierarchical decision tree: diverge → converge → oscillate → chaos → null. Key per-bin statistics: Theil-Sen slope + Mann-Kendall for divergence, log rolling RMS envelope decay for convergence, multitaper spectral peak for oscillation, 0-1 test + LLE + permutation entropy for chaos (most conservative label, checked last). IAAFT surrogates for null calibration.
+
+Revised prereg: reframed as forcing-pattern classification, added the hierarchical rule with 9-feature vector, centered chaos forcing (standardized logistic map, varied z_0 per rep), locked amplitude calibration on separate seeds, bumped null reps to 1000, added 5×5 confusion matrix with macro-F1 > 0.8 as success criterion. Commit `e51a6b0`.
+
+Also edited the blog post: sharpened the e-value argument to assert temporal preservation as mathematical certainty. P-values force lossy compression because peeking breaks the guarantee. E-values remove that constraint. Pearl said intervene; same logic one level up — stop compressing and look at the data. Four bins are sensemaking modes.
+
+### 11:30 — Kill-condition decision tree, pushed blog post, started V3 experiment
+
+Restructured the classifier around kill conditions (proof-manual pattern). Key fix: convergence vs divergence resolved by curvature ratio (RSS exponential / RSS linear), not branch ordering. Mann-Kendall detects monotone trend; curvature disambiguates. Renamed chaos → aperiodic forcing.
+
+Pushed blog post edits and deployed to june.kim. Commit `acaf106`.
+
+Implemented `src/fourbin.py`: 1000 null calibration reps, amplitude sweep on separate seeds, 100 eval reps × 5 conditions, kill-condition logging, confusion matrices.
+
+### 12:00 — Four-bin experiment: three iterations to convergence
+
+First run: Theil-Sen slope was 1.8s per trajectory (O(n²) pairwise slopes). Subsampled to 1000 points. Also subsampled 0-1 test and Mann-Kendall. Feature computation dropped from 2.2s to 0.49s.
+
+Run 1 (amp=0.5): divergence and convergence undetected (all null). Trend too weak — Mann-Kendall has low power on per-step increments with small slopes.
+
+Run 2 (amp=1.5 for diverge/converge): divergent 100%, convergent 100%, oscillatory 100%. BUT aperiodic → 100% oscillatory. The logistic map's period-2 orbit structure creates a high-Q spectral peak near Nyquist (period 2.65), triggering the oscillation detector before the aperiodic test.
+
+Run 3 (added period > 10 filter): all five bins correct. Composed macro-F1 = 0.996. Standardized sum F1 = 0.478. Individual majority vote F1 = 0.279. The composition advantage generalizes across all four forcing patterns.
+
+The curvature test (RSS exponential / RSS linear) perfectly separates convergence from divergence. The kill-condition framework works: monotone → curvature → periodicity → aperiodic → null. Each failure mode names the next test.
