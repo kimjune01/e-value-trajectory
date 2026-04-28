@@ -101,7 +101,7 @@ All replications, all conditions, all sensitivity runs published via reproducibl
 
 ### Claim 2: Trajectory shape classifies faster than threshold crossing
 
-**Question:** Does a spectral classifier on the e-value trajectory identify cyclic systems earlier than a standard e-value threshold test, and does e-value's variable-method flexibility outperform a fixed-model Bayesian sequential test?
+**Question:** Is spectral analysis on the e-value trajectory a cleaner signal surface for detecting cyclicity than spectral analysis on a Bayesian posterior mean, and do either outperform a threshold-only test that ignores trajectory shape?
 **In plain English:** Does the shape of your bet tell you something that the size of your bet doesn't?
 
 **Setup:**
