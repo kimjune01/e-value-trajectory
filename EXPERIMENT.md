@@ -6,41 +6,41 @@ We know the ground truth for all conditions. This is not a prospective study. We
 
 ## Prereg audit
 
-Audited against [june.kim/prereg-audit](https://june.kim/prereg-audit). Gaps identified and addressed below.
+Audited against [june.kim/prereg-audit](https://june.kim/prereg-audit). Gaps identified and addressed inline.
+
+## The mechanism (Hume Q4)
+
+The e-value at each step is e_t = exp(λX_t - λ²/2). The expected log-evidence per step is:
+
+    E[log e_t] = λμ(t) - λ²/2
+
+When μ(t) is constant (stationary effect), E[log e_t] is constant and positive (if λ matches the alternative). E_t grows exponentially. When μ(t) oscillates (cyclic system), E[log e_t] oscillates with the same period. E_t grows during phases where λμ(t) > λ²/2 and shrinks otherwise. The oscillation in the evidence is a direct algebraic consequence of the oscillation in the data-generating process, not a statistical artifact.
+
+When λ is misspecified relative to the current μ(t) (which happens for half of each cycle), the e-value is still valid (supermartingale under the null) but the trajectory shape reflects the misspecification. This is a feature: the shape tells you the betting strategy doesn't match the system's current regime.
 
 ## Assumptions that would invalidate results (Descartes Q3)
 
-- All DGPs are Gaussian. If the trajectory diagnostic only works for normal distributions, the thesis is narrow. **Mitigation**: add one heavy-tailed condition (t-distribution, df=3) and one discrete condition (Bernoulli with time-varying p) to each claim.
-- E-values are computed with λ targeting the true alternative μ=0.3. Misspecified λ could cause oscillation artifacts. **Mitigation**: run sensitivity analysis with λ at 0.5× and 2× the optimal value. If oscillation appears/disappears with λ, the diagnostic is an artifact of the betting strategy, not the system.
-
-## Mechanism (Hume Q4)
-
-The e-value at each step is e_t = exp(λX_t - λ²/2). When X_t is drawn from the alternative (μ > 0), the exponent is positive in expectation and E_t grows. When X_t is drawn from the null or reversed alternative (μ ≤ 0), the exponent is negative in expectation and E_t shrinks. In a cyclic system where μ(t) alternates sign, the growth and shrinkage alternate, producing oscillation in E_t with the same period as μ(t). The mechanism is multiplicative compounding of signed log-evidence.
+- All DGPs are univariate. Multivariate or high-dimensional systems are out of scope for this experiment.
+- E-values are computed with fixed λ. Adaptive λ (which would track the system) is a different experiment.
 
 ## Competing explanations (Chamberlin Q8)
 
 What else could cause oscillation in E_t besides system cyclicity?
 1. **Misspecified λ**: too large λ amplifies noise into apparent oscillation. Tested via sensitivity analysis.
-2. **Finite-sample noise**: random fluctuations in E_t that look periodic by coincidence. Tested by comparing autocorrelation structure of cyclic condition to null condition — null should show no peak.
-3. **Non-stationarity in the null**: if the null DGP drifts, E_t oscillates even without a cycle. Tested by verifying condition (c) shows flat autocorrelation.
+2. **Finite-sample noise**: random fluctuations that look periodic by coincidence. Tested by comparing spectral analysis of cyclic condition to null condition.
+3. **Autocorrelation in the DGP**: an AR process can produce quasi-periodic trajectories without explicit cycles. This is why Claim 1 includes an AR condition.
 
 ## Self-deception risk (Feynman Q14)
 
-The shape classifier in Claim 2 uses autocorrelation at lag T/2. In real data, T is unknown. This bakes in oracle knowledge. **Mitigation**: add a "blind" variant of Claim 2 where the classifier uses a bank of lags (T/4, T/2, T, 2T) and must identify the correct lag as well as the condition. If the blind classifier fails, the diagnostic requires prior knowledge of the cycle period and is not self-sufficient.
+Previous draft baked oracle knowledge of the cycle period T into every analysis component. Fixed: all periodicity detection now uses spectral methods (periodogram) that don't require knowing T. The hypothesis is that the e-value trajectory's periodogram shows a peak at the system's true period, not that a pre-tuned detector finds what it was tuned to find.
 
 ## Severity (Mayo Q17)
 
-"Indistinguishable trajectory shapes" requires a metric. **Metric**: two-sample Kolmogorov-Smirnov test on the distribution of rolling-window slopes between conditions (a) and (b). If KS p > 0.05, the shapes are indistinguishable and the thesis fails. For "smooth divergence," the coefficient of variation of rolling slopes must be < 0.3 (consistently positive). For "oscillation," coefficient of variation must be > 1.0 (sign-alternating).
-
-## Power (Ioannidis Q16)
-
-100 replications per condition. Effect size for distinguishing conditions: the KS test between rolling-slope distributions of (a) vs (b) should detect a difference with power > 0.95 at α=0.05. If preliminary runs show power < 0.80, increase to 500 replications.
+"Indistinguishable" is tested via TOST (two one-sided tests) equivalence testing on rolling-slope distributions, not KS accept-the-null. Equivalence margin: Cohen's d = 0.2 (small effect).
 
 ## Trail (Gwern Q18)
 
-All replications, all conditions, all parameter sensitivity runs will be published in `data/` (gitignored but reproducible via `generate_synthetic.py` with fixed seeds). The `report.md` will include every figure, every failed condition, and every sensitivity result. No curation.
-
-Seeds: `np.random.seed(42)` for primary runs. Seeds 1–100 for replications.
+All replications, all conditions, all sensitivity runs published via reproducible scripts with fixed seeds. `report.md` will include every figure and every failure. No curation. Seeds: `np.random.seed(42)` for primary runs. Seeds 1–100 for replications.
 
 ---
 
@@ -48,86 +48,85 @@ Seeds: `np.random.seed(42)` for primary runs. Seeds 1–100 for replications.
 
 ### Claim 1: Cyclic systems produce oscillating e-value trajectories
 
-**Setup:**
-- Generate N=10,000 observations from five systems:
-  - **(a) Stationary effect**: i.i.d. draws from N(μ=0.3, σ=1). True effect, no feedback.
-  - **(b) Cyclic effect**: effect size oscillates sinusoidally, μ(t) = 0.3 × sin(2πt/T), period T=500.
-  - **(c) Null**: i.i.d. draws from N(0, 1). No effect.
-  - **(g) Heavy-tailed stationary**: i.i.d. draws from t(df=3, ncp=0.3). True effect, heavy tails.
-  - **(h) Heavy-tailed cyclic**: t(df=3) with ncp(t) = 0.3 × sin(2πt/500). Cyclic, heavy tails.
+**Setup — five DGPs, three with feedback:**
+- **(a) Stationary effect**: i.i.d. draws from N(μ=0.3, σ=1). True effect, no dynamics.
+- **(b) Feedback cycle (Lotka-Volterra)**: discretized predator-prey system. X_t is noisy observation of prey population. The oscillation emerges from the dynamics (prey grows → predator grows → prey shrinks → predator shrinks → repeat). Period is not injected; it emerges from the parameters.
+- **(c) Null**: i.i.d. draws from N(0, 1). No effect.
+- **(d) AR(1) with drift**: X_t = 0.9·X_{t-1} + 0.3 + ε_t, ε ~ N(0,1). Autocorrelated, mean-reverting, no explicit cycle. Tests whether autocorrelation alone produces oscillation artifacts.
+- **(e) Regime-switching**: hidden Markov model with two states (μ=0.3 and μ=-0.3), transition probability 0.005 per step. Random regime changes, not periodic.
 
 **E-value computation:**
-- Simple normal-mean e-value: e_t = exp(λ × X_t - λ²/2) for each observation, with λ chosen to target the alternative μ=0.3.
-- Running product E_t = ∏ e_i gives the cumulative e-value trajectory.
+- e_t = exp(λ × X_t - λ²/2), λ = 0.3 (targeting N(0.3, 1) alternative).
+- Running product E_t = ∏ e_i.
 
 **Prediction:**
-- (a, g) E_t diverges upward. Rolling-window slope CV < 0.3.
-- (b, h) E_t oscillates. Rolling-window slope CV > 1.0. Autocorrelation of log(E_t) differences peaks at lag T/2 ± 50.
-- (c) E_t trends toward zero. Rolling-window slope consistently negative.
+- (a) log(E_t) grows linearly. Periodogram of Δlog(E_t) shows no peak.
+- (b) log(E_t) oscillates. Periodogram of Δlog(E_t) shows a peak at the emergent Lotka-Volterra period.
+- (c) log(E_t) trends negative. Periodogram flat.
+- (d) log(E_t) grows (positive mean) but periodogram shows no peak (autocorrelation ≠ periodicity).
+- (e) log(E_t) shows regime-dependent growth/shrinkage. Periodogram shows no clean peak (random switching, not periodic).
 
 **Falsification:**
-- If KS test on rolling-slope distributions of (a) vs (b) gives p > 0.05, the thesis is wrong.
-- If (b) oscillates but autocorrelation peak is not at lag T/2 ± 50, the oscillation is noise, not the cycle.
-- If (g) and (h) fail to replicate the pattern seen in (a) and (b), the diagnostic is Gaussian-specific.
+- If (a) and (b) produce indistinguishable periodograms (TOST equivalence, d < 0.2 on peak height), the thesis is wrong.
+- If (d) produces a periodogram peak comparable to (b), autocorrelation confounds the diagnostic.
+- If (e) produces a clean peak, the diagnostic can't distinguish periodic from random switching.
 
 **Sensitivity:**
-- Repeat Claim 1 with λ at 0.5× and 2× optimal. Report whether oscillation in (b) appears/disappears.
+- Repeat with λ at 0.5× and 2× optimal. Report whether oscillation pattern changes.
 
 **Measurement:**
-- Autocorrelation of log(E_t) differences at lags 1 to 1000.
-- Rolling-window slope (window = T/2 = 250) and its coefficient of variation.
-- KS test between slope distributions of (a) vs (b).
+- Periodogram of Δlog(E_t) for all five conditions (no oracle parameters needed).
+- Same periodogram on raw X_t, for comparison. The thesis holds if the e-value periodogram reveals structure the raw-data periodogram also shows (validating transparency) or reveals it more cleanly (e-value as amplifier).
+- TOST equivalence test between periodogram peak heights of (a) vs (b).
 - Visual: plot all five trajectories on the same axes (log scale).
 
 ### Claim 2: Trajectory shape classifies faster than threshold crossing
 
 **Setup:**
-- Same five conditions as above.
-- Three classifiers race:
-  - **Threshold classifier**: standard e-value test, reject null when E_t > 1/α (α=0.05, threshold = 20).
-  - **Oracle shape classifier**: logistic regression on trajectory features (slope, variance, autocorrelation at lag T/2) computed over a rolling window of size W=200. Knows T.
-  - **Blind shape classifier**: same features but uses a bank of lags (T/4, T/2, T, 2T) and must identify the correct lag. Does not know T.
+- Same five conditions.
+- Two classifiers race:
+  - **Threshold classifier**: standard e-value test, reject null when E_t > 20 (α=0.05).
+  - **Spectral classifier**: sliding-window periodogram on Δlog(E_t) (window = 500, no knowledge of T). Classifies as "periodic" when peak power exceeds 3× median power; "stationary" when slope of log(E_t) is consistently positive; "null" when slope is consistently negative.
 
 **Prediction:**
-- Oracle classifier identifies condition (b) as "cyclic" before threshold classifier reaches a verdict.
-- Blind classifier identifies condition (b) as "cyclic" before threshold classifier, but later than oracle.
-- Both classifiers identify condition (c) as "null" before E_t has drifted far enough to be conclusive.
+- Spectral classifier identifies (b) as periodic before threshold classifier reaches a verdict.
+- Spectral classifier identifies (c) as null before E_t has drifted far enough to be conclusive.
 
 **Falsification:**
-- If threshold crossing is consistently faster than both shape classifiers, trajectory analysis adds no value.
-- If blind classifier fails entirely, the diagnostic requires oracle knowledge of T and is not self-sufficient.
+- If threshold crossing is consistently faster than spectral classification, trajectory analysis adds no value over standard e-value testing.
 
 **Measurement:**
 - For each condition, record the observation index at which each classifier first commits to the correct label.
-- Compare median stopping times across 100 replications per condition.
+- Compare median stopping times across 100 replications. Report interquartile range.
 
 ### Claim 3: Regime changes in the system appear as regime changes in the evidence
 
 **Setup:**
 - Generate N=10,000 observations with a regime switch at t=5,000:
-  - **(d) Effect → null**: μ=0.3 for t<5,000, μ=0 for t≥5,000.
-  - **(e) Null → effect**: μ=0 for t<5,000, μ=0.3 for t≥5,000.
-  - **(f) Effect → reversed**: μ=0.3 for t<5,000, μ=-0.3 for t≥5,000.
+  - **(f) Effect → null**: μ=0.3 for t<5,000, μ=0 for t≥5,000.
+  - **(g) Null → effect**: μ=0 for t<5,000, μ=0.3 for t≥5,000.
+  - **(h) Effect → reversed**: μ=0.3 for t<5,000, μ=-0.3 for t≥5,000.
 
 **Prediction:**
-- (d) Slope of log(E_t) in rolling window flips from positive to near-zero at t≈5,000.
-- (e) Slope flips from near-zero to positive.
-- (f) Slope flips from positive to negative. Clearest case.
+- (f) Slope of log(E_t) in sliding window flips from positive to near-zero at t≈5,000.
+- (g) Slope flips from near-zero to positive.
+- (h) Slope flips from positive to negative.
 
 **Falsification:**
-- If the slope change is not detectable within 500 observations of the true switch point (|t_detected - 5,000| > 500), the trajectory is too noisy to be diagnostic.
+- If changepoint detection delay |t_detected - 5,000| > 500 observations, the trajectory is too noisy to be diagnostic.
 
 **Measurement:**
-- CUSUM and Bayesian online changepoint detection on rolling slope of log(E_t).
-- Detection delay: |t_detected - 5,000|. Target: under 500 observations.
-- False alarm rate: how often does the detector fire in stationary conditions (a) and (c)?
+- CUSUM and Bayesian online changepoint detection on sliding-window slope of log(E_t).
+- Detection delay and false alarm rate (tested against stationary conditions a and c).
+- Head-to-head: same changepoint detectors on raw X_t vs on log(E_t). Does the e-value trajectory make the regime change easier or harder to detect than the raw data?
 
 ## Implementation order
 
 1. `generate_synthetic.py` — produce all conditions (a)–(h), with fixed seeds
 2. `compute_evalues.py` — sequential e-value computation
-3. `plot_trajectories.py` — visual comparison (the figure that makes or breaks the thesis)
-4. `classify_shape.py` — autocorrelation, rolling slope, shape classifier (oracle + blind)
-5. `detect_regime.py` — changepoint detection on evidence trajectories
-6. `sensitivity.py` — λ sensitivity analysis
-7. `report.md` — all results, all figures, all failures, verdict
+3. `plot_trajectories.py` — visual comparison
+4. `spectral_analysis.py` — periodogram on Δlog(E_t) and raw X_t
+5. `classify_shape.py` — spectral classifier vs threshold classifier race
+6. `detect_regime.py` — changepoint detection on evidence trajectories vs raw data
+7. `sensitivity.py` — λ sensitivity analysis
+8. `report.md` — all results, all figures, all failures, verdict
