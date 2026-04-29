@@ -1,0 +1,309 @@
+============================================================
+PHASE 0: Null calibration
+============================================================
+Null calibration: 1000 reps...
+  null calibration: 200/1000
+  null calibration: 400/1000
+  null calibration: 600/1000
+  null calibration: 800/1000
+  null calibration: 1000/1000
+  Thresholds: {'S_q99': 2.882577272957143e-05, 'R_curve_q05': 1.2459941170685442, 'R_curve_q95': 1.3385473868289932, 'G_spec_q99': 0.0025974161621568955}
+Null calibration (standardized sum): 1000 reps...
+  zsum null calibration: 200/1000
+  zsum null calibration: 400/1000
+  zsum null calibration: 600/1000
+  zsum null calibration: 800/1000
+  zsum null calibration: 1000/1000
+  Z-sum thresholds: {'S_q99': 2.871686289684085e-05, 'R_curve_q05': 1.2433871805439536, 'R_curve_q95': 1.3430932516321876, 'G_spec_q99': 0.002602453485024911}
+
+============================================================
+PHASE 1: Amplitude sweep (21 steps x 4 bins x 100 reps)
+============================================================
+
+--- Amplitude sweep ---
+  divergence amp=0.0000: det=0.000  F1=0.7333
+  divergence amp=0.1500: det=0.000  F1=0.7333
+  divergence amp=0.3000: det=0.000  F1=0.7333
+  divergence amp=0.4500: det=0.000  F1=0.7333
+  divergence amp=0.6000: det=0.000  F1=0.7333
+  divergence amp=0.7500: det=0.000  F1=0.7333
+  divergence amp=0.9000: det=0.000  F1=0.7317
+  divergence amp=1.0500: det=0.000  F1=0.7333
+  divergence amp=1.2000: det=0.000  F1=0.7333
+  divergence amp=1.3500: det=0.040  F1=0.7505
+  divergence amp=1.5000: det=1.000  F1=1.0000
+  divergence amp=1.6500: det=1.000  F1=1.0000
+  divergence amp=1.8000: det=1.000  F1=1.0000
+  divergence amp=1.9500: det=1.000  F1=1.0000
+  divergence amp=2.1000: det=1.000  F1=1.0000
+  divergence amp=2.2500: det=1.000  F1=1.0000
+  divergence amp=2.4000: det=1.000  F1=1.0000
+  divergence amp=2.5500: det=1.000  F1=1.0000
+  divergence amp=2.7000: det=1.000  F1=1.0000
+  divergence amp=2.8500: det=1.000  F1=1.0000
+  divergence amp=3.0000: det=1.000  F1=1.0000
+  convergence amp=0.0000: det=0.000  F1=0.7333
+  convergence amp=0.1500: det=0.000  F1=0.7333
+  convergence amp=0.3000: det=0.000  F1=0.7333
+  convergence amp=0.4500: det=0.000  F1=0.7333
+  convergence amp=0.6000: det=0.000  F1=0.7333
+  convergence amp=0.7500: det=0.000  F1=0.7333
+  convergence amp=0.9000: det=1.000  F1=1.0000
+  convergence amp=1.0500: det=1.000  F1=1.0000
+  convergence amp=1.2000: det=1.000  F1=1.0000
+  convergence amp=1.3500: det=1.000  F1=1.0000
+  convergence amp=1.5000: det=1.000  F1=1.0000
+  convergence amp=1.6500: det=1.000  F1=1.0000
+  convergence amp=1.8000: det=1.000  F1=1.0000
+  convergence amp=1.9500: det=1.000  F1=1.0000
+  convergence amp=2.1000: det=1.000  F1=1.0000
+  convergence amp=2.2500: det=1.000  F1=1.0000
+  convergence amp=2.4000: det=1.000  F1=1.0000
+  convergence amp=2.5500: det=1.000  F1=1.0000
+  convergence amp=2.7000: det=1.000  F1=1.0000
+  convergence amp=2.8500: det=1.000  F1=1.0000
+  convergence amp=3.0000: det=1.000  F1=1.0000
+  oscillation amp=0.0000: det=0.000  F1=0.7333
+  oscillation amp=0.0100: det=0.010  F1=0.7377
+  oscillation amp=0.0200: det=0.410  F1=0.8708
+  oscillation amp=0.0300: det=0.990  F1=0.9980
+  oscillation amp=0.0400: det=1.000  F1=1.0000
+  oscillation amp=0.0500: det=1.000  F1=1.0000
+  oscillation amp=0.0600: det=1.000  F1=1.0000
+  oscillation amp=0.0700: det=1.000  F1=1.0000
+  oscillation amp=0.0800: det=1.000  F1=1.0000
+  oscillation amp=0.0900: det=1.000  F1=1.0000
+  oscillation amp=0.1000: det=1.000  F1=1.0000
+  oscillation amp=0.1100: det=1.000  F1=1.0000
+  oscillation amp=0.1200: det=1.000  F1=1.0000
+  oscillation amp=0.1300: det=1.000  F1=1.0000
+  oscillation amp=0.1400: det=1.000  F1=1.0000
+  oscillation amp=0.1500: det=1.000  F1=1.0000
+  oscillation amp=0.1600: det=1.000  F1=1.0000
+  oscillation amp=0.1700: det=1.000  F1=1.0000
+  oscillation amp=0.1800: det=1.000  F1=1.0000
+  oscillation amp=0.1900: det=1.000  F1=1.0000
+  oscillation amp=0.2000: det=1.000  F1=1.0000
+  aperiodic amp=0.0000: det=0.000  F1=0.7333
+  aperiodic amp=0.0500: det=0.000  F1=0.7333
+  aperiodic amp=0.1000: det=0.000  F1=0.7333
+  aperiodic amp=0.1500: det=0.000  F1=0.7333
+  aperiodic amp=0.2000: det=0.000  F1=0.7333
+  aperiodic amp=0.2500: det=0.000  F1=0.7333
+  aperiodic amp=0.3000: det=0.000  F1=0.7333
+  aperiodic amp=0.3500: det=1.000  F1=1.0000
+  aperiodic amp=0.4000: det=1.000  F1=1.0000
+  aperiodic amp=0.4500: det=1.000  F1=1.0000
+  aperiodic amp=0.5000: det=1.000  F1=1.0000
+  aperiodic amp=0.5500: det=1.000  F1=1.0000
+  aperiodic amp=0.6000: det=1.000  F1=1.0000
+  aperiodic amp=0.6500: det=1.000  F1=1.0000
+  aperiodic amp=0.7000: det=1.000  F1=1.0000
+  aperiodic amp=0.7500: det=1.000  F1=1.0000
+  aperiodic amp=0.8000: det=1.000  F1=1.0000
+  aperiodic amp=0.8500: det=1.000  F1=1.0000
+  aperiodic amp=0.9000: det=1.000  F1=1.0000
+  aperiodic amp=0.9500: det=1.000  F1=1.0000
+  aperiodic amp=1.0000: det=1.000  F1=1.0000
+
+============================================================
+PHASE 1b: Equalized difficulty
+============================================================
+
+--- Equalized difficulty ---
+  divergence: equalized amp = 1.5000
+  convergence: equalized amp = 0.9000
+  oscillation: equalized amp = 0.0300
+  aperiodic: equalized amp = 0.3500
+
+============================================================
+PHASE 2: Ablations (8 conditions x 100 reps)
+============================================================
+
+--- Ablations ---
+  Ablation: remove_monotone
+    F1=0.2736  delta=0.1437
+  Ablation: remove_mann_kendall
+    F1=1.0000  delta=0.5244
+  Ablation: remove_curvature
+    F1=0.7333  delta=0.2577
+  Ablation: remove_period_filter
+    F1=0.7363  delta=0.2860
+  Ablation: remove_01_test
+    F1=1.0000  delta=0.5244
+  Ablation: remove_pe
+    F1=0.7333  delta=0.2566
+  Ablation: curvature_minus20
+    F1=1.0000  delta=0.6223
+  Ablation: curvature_plus20
+    F1=0.7333  delta=0.2577
+
+============================================================
+PHASE 3: Degradations (5 types x 3 severities x 500 reps)
+============================================================
+
+--- Degradations ---
+  AR(1) phi=0.2
+    F1=0.9694  null_fpr=0.0020
+  AR(1) phi=0.5
+    F1=0.9565  null_fpr=0.0280
+  AR(1) phi=0.8
+    F1=0.9245  null_fpr=0.1740
+  Correlated rho=0.1
+    F1=0.9996  delta=0.5219
+  Correlated rho=0.3
+    F1=0.9940  delta=0.5061
+  Correlated rho=0.6
+    F1=0.7329  delta=0.3789
+  Missing frac=0.05
+    F1=0.9928
+  Missing frac=0.1
+    F1=0.7559
+  Missing frac=0.25
+    F1=0.7329
+  t-misspec df=3
+    F1=0.9996
+  t-misspec df=5
+    F1=1.0000
+  t-misspec df=10
+    F1=0.9996
+  Drift coef=0.005
+    F1=0.9992  null_fpr=0.0040
+  Drift coef=0.01
+    F1=0.9992  null_fpr=0.0040
+  Drift coef=0.02
+    F1=0.9996  null_fpr=0.0020
+
+============================================================
+PHASE 4: Period filter sweep (25 thresholds x 100 reps)
+============================================================
+
+--- Period filter sweep ---
+  period_min=2: F1=0.7363
+  period_min=4: F1=0.9980
+  period_min=6: F1=1.0000
+  period_min=8: F1=1.0000
+  period_min=10: F1=1.0000
+  period_min=12: F1=1.0000
+  period_min=14: F1=1.0000
+  period_min=16: F1=1.0000
+  period_min=18: F1=1.0000
+  period_min=20: F1=1.0000
+  period_min=22: F1=1.0000
+  period_min=24: F1=1.0000
+  period_min=26: F1=1.0000
+  period_min=28: F1=1.0000
+  period_min=30: F1=1.0000
+  period_min=32: F1=1.0000
+  period_min=34: F1=1.0000
+  period_min=36: F1=1.0000
+  period_min=38: F1=1.0000
+  period_min=40: F1=1.0000
+  period_min=42: F1=1.0000
+  period_min=44: F1=1.0000
+  period_min=46: F1=1.0000
+  period_min=48: F1=1.0000
+  period_min=50: F1=1.0000
+
+============================================================
+PHASE 5: Mixed dynamics (4 types x 5 ratios x 100 reps)
+============================================================
+
+--- Mixed dynamics ---
+  trend_oscillation w1=0.2 w2=0.8
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  trend_oscillation w1=0.4 w2=0.6
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  trend_oscillation w1=0.5 w2=0.5
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  trend_oscillation w1=0.6 w2=0.4
+    entropy=0.1414  counts={"null": 2, "divergent": 0, "convergent": 98, "oscillatory": 0, "aperiodic": 0}
+  trend_oscillation w1=0.8 w2=0.2
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 100, "oscillatory": 0, "aperiodic": 0}
+  oscillation_aperiodic w1=0.2 w2=0.8
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 100}
+  oscillation_aperiodic w1=0.4 w2=0.6
+    entropy=0.9710  counts={"null": 40, "divergent": 0, "convergent": 0, "oscillatory": 60, "aperiodic": 0}
+  oscillation_aperiodic w1=0.5 w2=0.5
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 0, "oscillatory": 100, "aperiodic": 0}
+  oscillation_aperiodic w1=0.6 w2=0.4
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 0, "oscillatory": 100, "aperiodic": 0}
+  oscillation_aperiodic w1=0.8 w2=0.2
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 0, "oscillatory": 100, "aperiodic": 0}
+  convergence_oscillation w1=0.2 w2=0.8
+    entropy=0.1944  counts={"null": 3, "divergent": 0, "convergent": 0, "oscillatory": 97, "aperiodic": 0}
+  convergence_oscillation w1=0.4 w2=0.6
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  convergence_oscillation w1=0.5 w2=0.5
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  convergence_oscillation w1=0.6 w2=0.4
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 100, "oscillatory": 0, "aperiodic": 0}
+  convergence_oscillation w1=0.8 w2=0.2
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 100, "oscillatory": 0, "aperiodic": 0}
+  div_heavy_tail w1=0.2
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  div_heavy_tail w1=0.4
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  div_heavy_tail w1=0.5
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  div_heavy_tail w1=0.6
+    entropy=0.0000  counts={"null": 100, "divergent": 0, "convergent": 0, "oscillatory": 0, "aperiodic": 0}
+  div_heavy_tail w1=0.8
+    entropy=0.0000  counts={"null": 0, "divergent": 0, "convergent": 100, "oscillatory": 0, "aperiodic": 0}
+
+============================================================
+PHASE 6: E-value validity (1000 reps)
+============================================================
+
+--- E-value validity ---
+  validity: 200/1000
+  validity: 400/1000
+  validity: 600/1000
+  validity: 800/1000
+  validity: 1000/1000
+  Anytime exceedance rate (>20): 0.0350
+  Max mean E_t (supermartingale): 1232.4987
+  Inflated? YES
+
+============================================================
+Writing results
+============================================================
+  /Users/junekim/e-value-trajectory/results/tables/v4_grid.csv (290 rows)
+
+Generating plots...
+  v4_sensitivity.png saved
+  v4_degraded.png saved
+Traceback (most recent call last):
+  File "/Users/junekim/e-value-trajectory/src/v4.py", line 1260, in <module>
+    main()
+    ~~~~^^
+  File "/Users/junekim/e-value-trajectory/src/v4.py", line 1220, in main
+    plot_ablation(abl_rows)
+    ~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/junekim/e-value-trajectory/src/v4.py", line 1031, in plot_ablation
+    ax.barh(y_pos, deltas, xerr=[ci_los, ci_his], color=colors, alpha=0.7,
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            capsize=3)
+            ^^^^^^^^^^
+  File "/Users/junekim/e-value-trajectory/.venv/lib/python3.14/site-packages/matplotlib/axes/_axes.py", line 2834, in barh
+    patches = self.bar(x=left, height=height, width=width, bottom=y,
+                       align=align, data=data, **kwargs)
+  File "/Users/junekim/e-value-trajectory/.venv/lib/python3.14/site-packages/matplotlib/__init__.py", line 1524, in inner
+    return func(
+        ax,
+        *map(cbook.sanitize_sequence, args),
+        **{k: cbook.sanitize_sequence(v) for k, v in kwargs.items()})
+  File "/Users/junekim/e-value-trajectory/.venv/lib/python3.14/site-packages/matplotlib/axes/_axes.py", line 2676, in bar
+    errorbar = self.errorbar(ex, ey, yerr=yerr, xerr=xerr, fmt='none',
+                             **error_kw)
+  File "/Users/junekim/e-value-trajectory/.venv/lib/python3.14/site-packages/matplotlib/_api/deprecation.py", line 453, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/junekim/e-value-trajectory/.venv/lib/python3.14/site-packages/matplotlib/__init__.py", line 1524, in inner
+    return func(
+        ax,
+        *map(cbook.sanitize_sequence, args),
+        **{k: cbook.sanitize_sequence(v) for k, v in kwargs.items()})
+  File "/Users/junekim/e-value-trajectory/.venv/lib/python3.14/site-packages/matplotlib/axes/_axes.py", line 3825, in errorbar
+    raise ValueError(
+        f"'{dep_axis}err' must not contain negative values")
+ValueError: 'xerr' must not contain negative values
