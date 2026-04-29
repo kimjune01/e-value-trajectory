@@ -22,7 +22,7 @@ One pipeline, many perturbations. Each perturbation modifies one aspect of V3's 
 
 | Category | Perturbation | Severity levels | Reps |
 |---|---|---|---|
-| **Amplitude** | Sweep each bin 0 to 2× V3 | 20 steps | 100 |
+| **Amplitude** | Sweep each bin 0 to 2× V3 | 21 steps (inclusive endpoints) | 100 |
 | **Amplitude** | Equalized difficulty (80% detection per bin + null) | 1 | 100 |
 | **Ablation** | Remove curvature test | 1 | 100 |
 | **Ablation** | Remove period > 10 filter | 1 | 100 |
@@ -68,7 +68,7 @@ Pins every implementation decision. Two independent implementers reading this ap
 
 ### V3 normative reference
 
-Pinned commit: the HEAD of `~/e-value-trajectory` at V4 start. Authoritative files: `src/fourbin.py`, `configs/conditions.yaml`. N=10,000 per stream, K=5 streams (temperature/Normal, fish_count/Poisson, inter_event/Exponential, turbidity/Bernoulli, dissolved_oxygen/Lognormal). Classifier thresholds from 1000-rep null calibration (seeds 80000–80999).
+Pinned commit: `63fda12` (`~/e-value-trajectory`). Authoritative files: `src/fourbin.py`, `configs/conditions.yaml`. N=10,000 per stream, K=5 streams (temperature/Normal, fish_count/Poisson, inter_event/Exponential, turbidity/Bernoulli, dissolved_oxygen/Lognormal). Classifier thresholds from 1000-rep null calibration (seeds 80000–80999).
 
 ### Classifier
 
@@ -109,9 +109,9 @@ Each ablation neutralizes one feature before classification. The tree runs uncha
 ### Seed schedule
 
 - Null calibration: seeds 80000–80999 (1000 reps).
-- Evaluation: seed = 99999 + rep + CONDITIONS.index(condition) * 10000. Disjoint from calibration.
+- Evaluation: seed = 99999 + rep + CONDITIONS.index(condition) * 10000. CONDITIONS order is from `conditions.yaml` YAML key order: ["null", "divergence", "convergence", "oscillation", "aperiodic"]. Reps are per condition per severity. Disjoint from calibration.
 - Ablations: same seeds as baseline evaluation (paired comparison).
-- Bootstrap: seed derived from hash of (category, perturbation, severity, signal). Not fixed globally.
+- Bootstrap: seed derived from `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal}".encode()).hexdigest()[:8], 16)`. Stable across Python processes (no PYTHONHASHSEED dependency).
 
 ### Amplitude sweep
 
@@ -145,7 +145,7 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 
 **Misspecified distribution (Normal → t):**
 - Replace only the temperature/Normal stream's noise with t-distributed noise.
-- Scale: `x = forcing + rng.standard_t(df, N) * sigma * sqrt(df / (df-2))` for df > 2, preserving marginal variance equal to V3's Normal(0, sigma^2).
+- Scale: `x = forcing + rng.standard_t(df, N) * sigma * sqrt((df-2) / df)` for df > 2, preserving marginal variance equal to V3's Normal(0, sigma^2). (Standard t has variance df/(df-2); multiply by sqrt((df-2)/df) to normalize to variance 1, then by sigma.)
 - E-value formula unchanged (still uses Normal lambda). This is the misspecification.
 - All other streams (Poisson, Exponential, Bernoulli, Lognormal) unchanged.
 - Classifier still uses V3 thresholds (no recalibration).
@@ -179,7 +179,7 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 
 - Stratified percentile bootstrap: resample trajectories within each true class (preserving class balance), recompute macro-F1 on each bootstrap sample.
 - 1000 bootstrap samples. CI = [2.5th percentile, 97.5th percentile].
-- Seed: `hash((category, perturbation, severity, signal)) % 2**31`.
+- Seed: `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal}".encode()).hexdigest()[:8], 16)`. Stable hash.
 
 ### Standardized sum baseline
 
@@ -214,7 +214,7 @@ null_fpr, label_entropy, label_counts, detection_rate, paired_delta
 ## Outputs
 
 - `results/tables/v4_grid.csv` — all perturbations, all metrics, one table
-- `results/plots/v4_sensitivity.png` — amplitude curves per bin
-- `results/plots/v4_degraded.png` — F1 heatmap: degradation × severity
-- `results/plots/v4_ablation.png` — paired delta bar chart
-- `results/plots/v4_mixed.png` — label distribution at each dominance ratio
+- `results/plots/v4_sensitivity.png` — 4 subplots (one per bin), x=amplitude, y=detection rate, with 95% CI shaded. Horizontal line at 80% and 90%.
+- `results/plots/v4_degraded.png` — heatmap, rows=degradation type, cols=severity, cell color=composed macro-F1, text=F1 value. Colorscale: red(<0.6) → yellow(0.8) → green(>0.9).
+- `results/plots/v4_ablation.png` — horizontal bar chart, one bar per ablation, x=paired delta in macro-F1 vs baseline, sorted by magnitude. Error bars from bootstrap CI.
+- `results/plots/v4_mixed.png` — stacked bar chart per mixed condition, faceted by ratio, bars=label counts, colored by label.
