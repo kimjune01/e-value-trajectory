@@ -62,6 +62,147 @@ Separate from classifier F1. For the t-distribution misspecification under null:
 - Anytime exceedance: does max_t E_t exceed 20 in ≤5% of reps?
 - Supermartingale: max over time of mean(e_t) across 1000 reps. Inflated if > 1.05.
 
+## Operational appendix
+
+Pins every implementation decision. Two independent implementers reading this appendix should produce identical results given the same seeds.
+
+### V3 normative reference
+
+Pinned commit: the HEAD of `~/e-value-trajectory` at V4 start. Authoritative files: `src/fourbin.py`, `configs/conditions.yaml`. N=10,000 per stream, K=5 streams (temperature/Normal, fish_count/Poisson, inter_event/Exponential, turbidity/Bernoulli, dissolved_oxygen/Lognormal). Classifier thresholds from 1000-rep null calibration (seeds 80000–80999).
+
+### Classifier
+
+Do NOT delegate to V3 `classify()`. Reimplement the decision tree with two tunable knobs:
+
+- `period_min` (default 10): minimum period for oscillatory classification.
+- `curve_mult` (default 1.0): multiplier on `R_curve_q05` threshold.
+
+Decision tree (identical logic to V3 but with knobs):
+```
+if |S| > S_q99 and |Z_MK| > 2.58 and |med_last - med_first| > 3*MAD_dx:
+    if R_curve < R_curve_q05 * curve_mult:
+        → convergent
+    else:
+        → divergent
+elif G_spec > G_spec_q99 and Q_spec > 5 and period_min < peak_period < N/8:
+    → oscillatory
+elif K_01 > 0.8 and 0.55 <= PE <= 0.95:
+    → aperiodic
+else:
+    → null
+```
+
+### Ablation operations
+
+Each ablation neutralizes one feature before classification. The tree runs unchanged; only the input differs.
+
+| Ablation | Operation |
+|---|---|
+| Remove monotone | Set S=0, Z_MK=0 |
+| Remove Mann-Kendall | Set Z_MK=0 |
+| Remove curvature | Set R_curve=1.0 (neutral) |
+| Remove period filter | Set period_min=0 |
+| Remove 0-1 test | Set K_01=0 |
+| Remove PE | Set PE=0 |
+| Curvature ±20% | Set curve_mult=0.8 or 1.2 |
+
+### Seed schedule
+
+- Null calibration: seeds 80000–80999 (1000 reps).
+- Evaluation: seed = 99999 + rep + CONDITIONS.index(condition) * 10000. Disjoint from calibration.
+- Ablations: same seeds as baseline evaluation (paired comparison).
+- Bootstrap: seed derived from hash of (category, perturbation, severity, signal). Not fixed globally.
+
+### Amplitude sweep
+
+- 21 steps from 0 to 2× V3 amplitude, inclusive (np.linspace(0, 2*base, 21)).
+- One bin swept at a time; other bins stay at V3 amplitude.
+- Report per-bin detection rate (fraction of reps where the swept bin's ground truth matches prediction) AND five-class macro-F1.
+
+### Equalized difficulty
+
+- After the sweep, for each bin find the amplitude closest to 80% per-bin detection rate (from the sweep data).
+- Run the classifier at those four amplitudes + null (amplitude 0). Report five-class macro-F1.
+
+### Degradation operators
+
+Each degradation modifies the data generation for ALL five conditions, not just null. The forcing and stream generation proceed as in V3, then the degradation is applied.
+
+**Autocorrelated (AR(1)):**
+- Generate AR(1) noise: `ar[0] = 0; ar[t] = phi * ar[t-1] + eps[t] * sqrt(1 - phi^2)` where `eps ~ N(0,1)`.
+- Marginal variance of `ar` is 1 (by construction from the `sqrt(1 - phi^2)` scaling).
+- Add `0.1 * ar` to the forcing signal before stream generation. This adds autocorrelated structure to all conditions, not just null.
+
+**Correlated streams:**
+- Generate one shared latent `z ~ N(0, 1)` of length N per rep.
+- Before generating each stream, mix the forcing: `forcing_corr = sqrt(1 - rho) * forcing + sqrt(rho) * 0.3 * z`.
+- Generate streams from `forcing_corr`. This preserves marginal distributions (Poisson rates stay positive via log link, Bernoulli via logit link) because the corruption enters through the forcing, not the observations.
+
+**Missing data (MCAR):**
+- For each stream independently, draw a mask: `mask = rng.random(N) < frac`.
+- Set `log_e[mask] = 0` (neutral evidence: the missing observation contributes nothing to the composed trajectory). Do NOT interpolate or drop.
+- The observation `x` is also masked for the standardized sum: `x[mask] = NaN`, then the standardized sum uses `nanmean` and `nanstd`.
+
+**Misspecified distribution (Normal → t):**
+- Replace only the temperature/Normal stream's noise with t-distributed noise.
+- Scale: `x = forcing + rng.standard_t(df, N) * sigma * sqrt(df / (df-2))` for df > 2, preserving marginal variance equal to V3's Normal(0, sigma^2).
+- E-value formula unchanged (still uses Normal lambda). This is the misspecification.
+- All other streams (Poisson, Exponential, Bernoulli, Lognormal) unchanged.
+- Classifier still uses V3 thresholds (no recalibration).
+
+**Nonstationary baseline:**
+- Add `drift * t / N` to the forcing for all conditions, where `t = np.arange(N)`.
+- Additive, positive drift. Applied before stream generation.
+
+### Mixed dynamics
+
+- Two forcings are summed: `forcing = w1 * A1 * f1(t) + w2 * A2 * f2(t)` where A1, A2 are V3 amplitudes, f1/f2 are the forcing functions, and w1+w2=1.
+- Ratios: (w1, w2) in {(0.2, 0.8), (0.4, 0.6), (0.5, 0.5), (0.6, 0.4), (0.8, 0.2)}.
+- "weak divergence + heavy-tailed noise": `forcing = w1 * A_div * f_div(t) + (1-w1) * 0.3 * rng.standard_t(3, N)`. The t-noise is the second component, not a null amplitude.
+- No correct label. Report label distribution and Shannon entropy (log base 2).
+
+### E-value validity
+
+- Run 1000 reps under null with the temperature stream using t(df=3) noise (same as misspecified degradation). Other streams use their V3 null distributions.
+- For each rep: compute `cum_log_e = cumsum(composed_log_e)` and `max_E = exp(max(cum_log_e))`.
+- Anytime exceedance rate: fraction of reps where `max_E > 20`.
+- Supermartingale diagnostic: accumulate `mean_et[t] = mean over reps of exp(composed_log_e[t])` at each time point. Report `max over t of mean_et`. Inflated if > 1.05.
+- Separate seeds from degradation reps.
+
+### Macro-F1
+
+- Standard macro-averaged F1: compute precision and recall per class, F1 per class, average across all 5 classes.
+- Zero-division: if TP+FP=0 or TP+FN=0, F1 for that class is 0.
+- Computed over pooled trajectories (all reps within a cell).
+
+### Bootstrap CI
+
+- Stratified percentile bootstrap: resample trajectories within each true class (preserving class balance), recompute macro-F1 on each bootstrap sample.
+- 1000 bootstrap samples. CI = [2.5th percentile, 97.5th percentile].
+- Seed: `hash((category, perturbation, severity, signal)) % 2**31`.
+
+### Standardized sum baseline
+
+- Per stream: `z = (x - mean(x)) / std(x)`. For missing data: use `nanmean` and `nanstd`.
+- Sum across streams: `z_sum = sum of z_k`.
+- Run the same V4 classifier on `z_sum` features.
+- Report macro-F1 and paired delta (composed F1 minus standardized F1) per cell.
+
+### Output schema
+
+One CSV: `results/tables/v4_grid.csv`. Required columns:
+
+```
+category, perturbation, severity, signal, macro_f1, ci_lo, ci_hi,
+null_fpr, label_entropy, label_counts, detection_rate, paired_delta
+```
+
+- `signal`: "composed" or "standardized_sum".
+- `macro_f1`: empty for mixed dynamics.
+- `label_counts`: JSON dict of label → count.
+- `detection_rate`: per-bin detection for amplitude sweep; empty otherwise.
+- `paired_delta`: composed F1 minus standardized F1; empty for standardized rows and mixed.
+
 ## Falsification
 
 - Lower CI < 0.8 at mildest severity of any degradation → fragile.
