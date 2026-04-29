@@ -153,3 +153,19 @@ Run 2 (amp=1.5 for diverge/converge): divergent 100%, convergent 100%, oscillato
 Run 3 (added period > 10 filter): all five bins correct. Composed macro-F1 = 0.996. Standardized sum F1 = 0.478. Individual majority vote F1 = 0.279. The composition advantage generalizes across all four forcing patterns.
 
 The curvature test (RSS exponential / RSS linear) perfectly separates convergence from divergence. The kill-condition framework works: monotone → curvature → periodicity → aperiodic → null. Each failure mode names the next test.
+
+### 14:00 — Blog post: The Hypothesis Graph
+
+Published "The Hypothesis Graph" as sequel to "Evidence has a trajectory." Core argument: experiments are nodes, kill conditions generate edges, the frontier is where belief meets the unknown. Three SVGs: mechanic diagnostic tree (linear, 3 bins), web server under load (nonlinear, all 4 bins), p-value vs e-value pipeline comparison. Added MECE proof via Milnor attractor classification. Proof by contradiction that the hypothesis generation algorithm must exist. Closer: "If we can poke it, we know how to know."
+
+Multiple copyedit passes revealed pipeline issues: em-dash pass was missing (18 dashes slipped through), prosody pass was missing, parallel scan caused silent conflict resolution. Fixed the copyedit skill: sequential pipeline, apply-first workflow.
+
+### 17:00 — V3 rerun with 1000 null reps: F1 = 1.000
+
+Proper run with 1000 null calibration reps. Composed classifier: perfect classification across all five labels. The two false positives from the 200-rep run disappeared with tighter thresholds. Codex adversarial review flagged: manual amplitudes are a confound, period > 10 filter is post-hoc, synthetic archetypes are too clean, need amplitude sensitivity curves and out-of-generator stress tests.
+
+### 17:30 — Prereg V4: robustness and sensitivity analysis
+
+Pre-registered five stress tests to turn F1 = 1.000 from exploratory to confirmatory: amplitude sensitivity curves, decision-tree ablation, mixed dynamics, degraded conditions (autocorrelated nulls, correlated streams, missing data, misspecified distributions, nonstationary baselines), period filter sensitivity sweep. Added bootstrap CIs. Audited against the prereg checklist: 18/20 questions answered, two skipped with reasons (Q12 alternative bin structures, Q15 no causal claims).
+
+Connected Hume to the blog post: sciences that can't perturb are structurally unable to learn causality. The hypothesis graph only works where you can poke.
