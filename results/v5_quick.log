@@ -1,0 +1,38 @@
+Null calibration (1000 reps)...
+Null calibration: 1000 reps...
+  null calibration: 200/1000
+  null calibration: 400/1000
+  null calibration: 600/1000
+  null calibration: 800/1000
+  null calibration: 1000/1000
+  Thresholds: {'S_q99': 2.882577272957143e-05, 'R_curve_q05': 1.2459941170685442, 'R_curve_q95': 1.3385473868289932, 'G_spec_q99': 0.0025974161621568955}
+
+============================================================
+V5 QUICK TESTS
+============================================================
+
+--- Baseline (V3 conditions, no degradation) ---
+  V3 full classifier:     F1=1.0000
+  H25 minimal (3-feat):   F1=1.0000
+  H24 damage-ordered:     F1=1.0000
+
+--- Missing data (10%) ---
+  Zero imputation:        F1=0.7546
+  H6 weighted imputation: F1=0.7546
+
+--- Correlation (rho=0.6) ---
+  Product composition:    F1=0.7333
+  H7 average composition: F1=0.7333
+
+--- Independence (rho=0) ---
+  Average (independent):  F1=0.9980
+  Product (independent):  F1=1.0000
+
+============================================================
+SUMMARY
+============================================================
+  H24 (damage order):     SAME
+  H25 (3-feature):        SAME
+  H6  (weighted @ 10%):   SAME/WORSE (0.7546 vs 0.7546)
+  H7  (avg @ rho=0.6):    SAME/WORSE (0.7333 vs 0.7333)
+  H7  cost (avg @ rho=0): LOST (0.9980 vs 1.0000)
