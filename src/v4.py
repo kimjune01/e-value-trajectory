@@ -13,6 +13,7 @@ import csv
 import sys
 from pathlib import Path
 from itertools import product as iterproduct
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 import matplotlib
@@ -368,9 +369,11 @@ def run_grid_cell(cfg, thresholds, thresholds_zsum,
                   feature_overrides=None,
                   mixed_forcing_fn=None,
                   is_mixed=False,
-                  sweep_condition=None):
+                  sweep_condition=None,
+                  return_raw=False):
     """Run one cell of the perturbation grid across all conditions.
-    Returns a list of result dicts (one per signal type)."""
+    Returns a list of result dicts (one per signal type).
+    If return_raw=True, also returns (y_true_comp, y_pred_comp) for paired comparisons."""
 
     y_true_comp = []
     y_pred_comp = []
@@ -474,6 +477,8 @@ def run_grid_cell(cfg, thresholds, thresholds_zsum,
         "detection_rate": "",
         "paired_delta": "",
     })
+    if return_raw:
+        return results, y_true_comp, y_pred_comp
     return results
 
 
@@ -554,25 +559,53 @@ def run_equalized_difficulty(cfg, thresholds, thresholds_zsum, sweep_data):
 # ABLATIONS
 # ====================================================================
 
+def paired_bootstrap_delta_ci(y_true_base, y_pred_base, y_true_abl, y_pred_abl,
+                               category, perturbation, n_boot=1000):
+    """Paired bootstrap CI on F1 delta. Resamples by shared (condition, rep)."""
+    class_indices = {}
+    for i, t in enumerate(y_true_base):
+        class_indices.setdefault(t, []).append(i)
+
+    deltas = []
+    for b in range(n_boot):
+        seed_str = f"{category},{perturbation},delta,composed,{b}"
+        seed = int(hashlib.sha256(seed_str.encode()).hexdigest()[:8], 16)
+        rng = np.random.default_rng(seed)
+        boot_idx = []
+        for cls in LABELS:
+            idx = class_indices.get(cls, [])
+            if len(idx) > 0:
+                boot_idx.extend(rng.choice(idx, size=len(idx), replace=True))
+        f1_base = compute_macro_f1([y_true_base[i] for i in boot_idx],
+                                    [y_pred_base[i] for i in boot_idx])
+        f1_abl = compute_macro_f1([y_true_abl[i] for i in boot_idx],
+                                   [y_pred_abl[i] for i in boot_idx])
+        deltas.append(f1_abl - f1_base)
+    return float(np.percentile(deltas, 2.5)), float(np.percentile(deltas, 97.5))
+
+
 def run_ablations(cfg, thresholds, thresholds_zsum):
-    """Run all ablation experiments."""
+    """Run all ablation experiments with paired raw predictions."""
     print("\n--- Ablations ---")
     all_rows = []
+    raw_preds = {}  # name -> (y_true, y_pred)
 
     # Baseline (no ablation) for paired comparison
-    baseline_rows = run_grid_cell(
+    baseline_result = run_grid_cell(
         cfg, thresholds, thresholds_zsum,
         category="ablation", perturbation="baseline",
-        severity="0", n_reps=100,
+        severity="0", n_reps=100, return_raw=True,
     )
+    baseline_rows, base_true, base_pred = baseline_result
     all_rows.extend(baseline_rows)
+    raw_preds["baseline"] = (base_true, base_pred)
 
     ablations = [
         ("remove_monotone", {"S": float("inf"), "Z_MK": float("inf"),
                             "med_last": 100.0, "med_first": 0.0, "MAD_dx": 0.001}, 10, 1.0),
         ("remove_mann_kendall", {"Z_MK": float("inf")}, 10, 1.0),
         ("remove_curvature", {"R_curve": 0.0}, 10, 1.0),
-        ("remove_period_filter", {}, 0, 1.0),  # period_min=0
+        ("remove_period_filter", {}, 0, 1.0),
         ("remove_01_test", {"K_01": 1.0}, 10, 1.0),
         ("remove_pe", {"PE": 0.75}, 10, 1.0),
         ("curvature_minus20", {}, 10, 0.8),
@@ -581,23 +614,40 @@ def run_ablations(cfg, thresholds, thresholds_zsum):
 
     for name, feat_overrides, pmin, cmult in ablations:
         print(f"  Ablation: {name}")
-        rows = run_grid_cell(
+        result = run_grid_cell(
             cfg, thresholds, thresholds_zsum,
             category="ablation", perturbation=name,
             severity="1", n_reps=100,
             period_min=pmin, curve_mult=cmult,
             feature_overrides=feat_overrides if feat_overrides else None,
+            return_raw=True,
         )
+        rows, abl_true, abl_pred = result
+        raw_preds[name] = (abl_true, abl_pred)
         all_rows.extend(rows)
         comp_row = [r for r in rows if r["signal"] == "composed"][0]
         print(f"    F1={comp_row['macro_f1']}  delta={comp_row['paired_delta']}")
 
+    # Store raw_preds on the function for plot_ablation to use
+    run_ablations._raw_preds = raw_preds
     return all_rows
 
 
 # ====================================================================
 # DEGRADATIONS
 # ====================================================================
+
+def _run_one_degradation(args):
+    """Worker for parallel degradation runs."""
+    cfg, thresholds, thresholds_zsum, perturbation, severity_str, n_reps, degradation, deg_params = args
+    rows = run_grid_cell(
+        cfg, thresholds, thresholds_zsum,
+        category="degradation", perturbation=perturbation,
+        severity=severity_str, n_reps=n_reps,
+        degradation=degradation, deg_params=deg_params,
+    )
+    return perturbation, severity_str, rows
+
 
 def run_degradations(cfg, thresholds, thresholds_zsum):
     """Run all degradation experiments."""
@@ -946,6 +996,9 @@ def plot_ablation(ablation_rows):
     ci_los = []
     ci_his = []
 
+    raw_preds = getattr(run_ablations, '_raw_preds', {})
+    base_true, base_pred = raw_preds.get("baseline", ([], []))
+
     for r in ablation_rows:
         if r["signal"] != "composed" or r["perturbation"] == "baseline":
             continue
@@ -954,12 +1007,16 @@ def plot_ablation(ablation_rows):
         delta = f1 - baseline_f1
         ablation_names.append(name)
         deltas.append(delta)
-        # Paired bootstrap delta CI (placeholder — proper paired bootstrap
-        # requires raw predictions stored; approximate from marginal CIs)
-        cl = float(r["ci_lo"]) - baseline_f1
-        ch = float(r["ci_hi"]) - baseline_f1
-        ci_los.append(delta - cl)
-        ci_his.append(ch - delta)
+
+        # Paired bootstrap delta CI
+        abl_true, abl_pred = raw_preds.get(name, ([], []))
+        if base_true and abl_true:
+            ci_lo_d, ci_hi_d = paired_bootstrap_delta_ci(
+                base_true, base_pred, abl_true, abl_pred, "ablation", name)
+        else:
+            ci_lo_d, ci_hi_d = delta, delta
+        ci_los.append(delta - ci_lo_d)
+        ci_his.append(ci_hi_d - delta)
 
     # Sort by magnitude
     order = np.argsort(np.abs(deltas))[::-1]
