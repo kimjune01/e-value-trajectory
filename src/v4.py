@@ -1,362 +1,483 @@
-"""V4 robustness grid for the four-bin e-value trajectory classifier.
+"""V4 robustness analysis. Second attempt after bug hunt."""
 
-This intentionally stays close to V3: calibrate null thresholds once, run the
-same generate -> compose -> classify -> score loop, and write one CSV.
-"""
-
-from __future__ import annotations
-
-import csv
-import json
-import math
 import sys
-from collections import Counter
-from pathlib import Path
-
+import csv
+import math
+import json
 import numpy as np
-from scipy.special import expit
+from pathlib import Path
+from collections import Counter
 
 sys.path.insert(0, str(Path.home() / "e-value-trajectory" / "src"))
-
-from fourbin import (  # noqa: E402
-    CONDITIONS,
-    GROUND_TRUTH,
-    LABELS,
-    classify,
-    compute_features,
-    generate_stream,
-    load_config,
-    make_forcing,
-    run_null_calibration,
+from fourbin import (
+    load_config, run_null_calibration, generate_stream, make_forcing,
+    compute_features, LABELS, CONDITIONS, GROUND_TRUTH
 )
+
+ROOT = Path.home() / "e-value-trajectory"
+OUT_DIR = ROOT / "results" / "tables"
+PLOT_DIR = ROOT / "results" / "plots"
+V3_AMPS = {"null": 0.0, "divergence": 1.5, "convergence": 1.5,
+           "oscillation": 0.1, "aperiodic": 0.5}
+
+
+def classify_v4(features, thresholds, period_min=10, curve_mult=1.0):
+    """V4 classifier with tunable knobs. Never delegates to V3."""
+    f = features
+    th = thresholds
+    s_thresh = th["S_q99"]
+    r_lo = th["R_curve_q05"] * curve_mult
+    g_thresh = th["G_spec_q99"]
+
+    if abs(f["S"]) > s_thresh and abs(f["Z_MK"]) > 2.58 \
+            and abs(f["med_last"] - f["med_first"]) > 3 * f["MAD_dx"]:
+        if f["R_curve"] < r_lo:
+            return "convergent", "monotone->curvature->convergent"
+        return "divergent", "monotone->curvature->divergent"
+
+    if f["G_spec"] > g_thresh and f["Q_spec"] > 5:
+        if period_min < f["peak_period"] < 10000 / 8:
+            return "oscillatory", "periodicity->oscillatory"
+
+    if f["K_01"] > 0.8 and 0.55 <= f["PE"] <= 0.95:
+        return "aperiodic", "aperiodic->K01+PE"
+
+    return "null", "null"
+
+
+def ablated_classify(features, thresholds, ablation=None, period_min=10, curve_mult=1.0):
+    """Classify with one component removed."""
+    f = dict(features)
+    if ablation == "no_monotone":
+        f["S"] = 0.0
+        f["Z_MK"] = 0.0
+    elif ablation == "no_mk":
+        f["Z_MK"] = 0.0
+    elif ablation == "no_curvature":
+        f["R_curve"] = 1.0  # neutral
+    elif ablation == "no_period_filter":
+        period_min = 0
+    elif ablation == "no_01":
+        f["K_01"] = 0.0
+    elif ablation == "no_pe":
+        f["PE"] = 0.0
+    return classify_v4(f, thresholds, period_min=period_min, curve_mult=curve_mult)
+
+
+def macro_f1(true_labels, pred_labels):
+    f1s = []
+    for lab in LABELS:
+        tp = sum(1 for t, p in zip(true_labels, pred_labels) if t == lab and p == lab)
+        fp = sum(1 for t, p in zip(true_labels, pred_labels) if t != lab and p == lab)
+        fn = sum(1 for t, p in zip(true_labels, pred_labels) if t == lab and p != lab)
+        prec = tp / (tp + fp) if (tp + fp) else 0
+        rec = tp / (tp + fn) if (tp + fn) else 0
+        f1s.append(2 * prec * rec / (prec + rec) if (prec + rec) else 0)
+    return float(np.mean(f1s))
+
+
+def stratified_bootstrap_ci(true_labels, pred_labels, n_boot=1000, seed=None):
+    """Bootstrap stratified by true class."""
+    if seed is None:
+        seed = hash(str(true_labels[:5])) % 2**31
+    rng = np.random.default_rng(seed)
+    classes = sorted(set(true_labels))
+    indices_by_class = {c: [i for i, t in enumerate(true_labels) if t == c] for c in classes}
+    f1s = []
+    for _ in range(n_boot):
+        boot_true, boot_pred = [], []
+        for c in classes:
+            idx = indices_by_class[c]
+            if not idx:
+                continue
+            sample = rng.choice(idx, len(idx), replace=True)
+            boot_true.extend(true_labels[i] for i in sample)
+            boot_pred.extend(pred_labels[i] for i in sample)
+        f1s.append(macro_f1(boot_true, boot_pred))
+    f1s.sort()
+    return float(np.median(f1s)), f1s[int(0.025 * n_boot)], f1s[int(0.975 * n_boot)]
+
+
+def generate_corrupted(cfg, condition, amp, rng, n, degradation=None, deg_params=None):
+    """Generate streams with degradation applied at the forcing/noise level."""
+    streams = cfg["composition"]["streams"]
+    stream_names = list(streams.keys())
+
+    forcing = make_forcing(condition, n, 0) * amp if condition != "null" else np.zeros(n)
+
+    # Autocorrelated: add AR(1) noise to forcing for ALL conditions
+    if degradation == "autocorrelated":
+        phi = deg_params["phi"]
+        ar = np.zeros(n)
+        ar[0] = rng.normal()
+        for t in range(1, n):
+            ar[t] = phi * ar[t-1] + rng.normal() * math.sqrt(1 - phi**2)
+        forcing = forcing + 0.1 * ar  # small autocorrelated perturbation
+
+    # Nonstationary: add drift to forcing for ALL conditions
+    if degradation == "nonstationary":
+        drift = deg_params["drift"]
+        forcing = forcing + drift * np.arange(n) / n
+
+    # Correlated: generate shared latent before streams
+    shared_latent = None
+    if degradation == "correlated":
+        shared_latent = rng.normal(0, 1, n)
+
+    all_x, all_log_e = [], []
+    for sname in stream_names:
+        s_cfg = streams[sname]
+
+        if degradation == "misspecified" and s_cfg["distribution"] == "normal":
+            df = deg_params["df"]
+            sigma = s_cfg["null_params"]["sigma"]
+            scale = sigma * math.sqrt(df / (df - 2)) if df > 2 else sigma
+            x = forcing + rng.standard_t(df, n) * scale
+            lam = s_cfg["alt_params"]["lambda"]
+            log_e = lam * x - lam**2 / 2
+        else:
+            x, log_e = generate_stream(s_cfg, forcing, rng)
+
+        # Correlated: inject shared latent into forcing before generation
+        if degradation == "correlated" and shared_latent is not None:
+            rho = deg_params["rho"]
+            # Re-generate with correlated forcing
+            corr_forcing = forcing * math.sqrt(1 - rho) + shared_latent * math.sqrt(rho) * 0.3
+            if degradation == "misspecified" and s_cfg["distribution"] == "normal":
+                pass  # already generated above
+            else:
+                x, log_e = generate_stream(s_cfg, corr_forcing, rng)
+
+        # Missing: set to neutral evidence (log_e = 0), not interpolation
+        if degradation == "missing":
+            frac = deg_params["frac"]
+            mask = rng.random(n) < frac
+            log_e = log_e.copy()
+            log_e[mask] = 0.0  # neutral evidence for missing observations
+
+        all_x.append(x)
+        all_log_e.append(log_e)
+
+    return all_x, all_log_e
+
+
+def run_cell(cfg, thresholds, category, perturbation, severity_str,
+             conditions, amps, n_reps, seed_base,
+             degradation=None, deg_params=None,
+             ablation=None, period_min=10, curve_mult=1.0,
+             mixed_parts=None):
+    """Run one cell: generate, compose, classify, score. Returns rows for both composed and standardized."""
+    n = cfg["composition"]["n_observations"]
+    rows = []
+
+    for cond in conditions:
+        amp = amps.get(cond, 0.0)
+        for rep in range(n_reps):
+            seed = seed_base + rep + CONDITIONS.index(cond) * 10000 if cond in CONDITIONS else seed_base + rep
+            rng = np.random.default_rng(seed)
+
+            if mixed_parts:
+                forcing = np.zeros(n)
+                for mc, mw in mixed_parts:
+                    forcing += mw * V3_AMPS[mc] * make_forcing(mc, n, rep)
+                all_x, all_log_e = [], []
+                for sname in cfg["composition"]["streams"]:
+                    x, log_e = generate_stream(cfg["composition"]["streams"][sname], forcing, rng)
+                    all_x.append(x)
+                    all_log_e.append(log_e)
+            else:
+                all_x, all_log_e = generate_corrupted(
+                    cfg, cond, amp, rng, n, degradation, deg_params)
+
+            # Composed
+            composed = np.sum(all_log_e, axis=0)
+            feats = compute_features(composed)
+            label, kill = ablated_classify(feats, thresholds, ablation, period_min, curve_mult)
+            rows.append({"condition": cond, "rep": rep, "signal": "composed",
+                         "label": label, "gt": GROUND_TRUTH.get(cond, "mixed")})
+
+            # Standardized sum
+            z_scores = [(x - np.nanmean(x)) / max(np.nanstd(x), 1e-10) for x in all_x]
+            z_sum = np.sum(z_scores, axis=0)
+            feats = compute_features(z_sum)
+            label, kill = ablated_classify(feats, thresholds, ablation, period_min, curve_mult)
+            rows.append({"condition": cond, "rep": rep, "signal": "standardized_sum",
+                         "label": label, "gt": GROUND_TRUTH.get(cond, "mixed")})
+
+    return rows
+
+
+def summarize_cell(rows, category, perturbation, severity_str, is_mixed=False):
+    """Summarize a cell into output rows."""
+    results = []
+    for signal in ["composed", "standardized_sum"]:
+        sig_rows = [r for r in rows if r["signal"] == signal]
+        if not sig_rows:
+            continue
+
+        if is_mixed:
+            counts = Counter(r["label"] for r in sig_rows)
+            entropy = -sum((v/len(sig_rows)) * math.log2(v/len(sig_rows))
+                           for v in counts.values() if v > 0)
+            results.append({
+                "category": category, "perturbation": perturbation,
+                "severity": severity_str, "signal": signal,
+                "macro_f1": "", "ci_lo": "", "ci_hi": "",
+                "null_fpr": "", "label_entropy": f"{entropy:.3f}",
+                "label_counts": json.dumps(dict(sorted(counts.items()))),
+            })
+        else:
+            true_l = [r["gt"] for r in sig_rows]
+            pred_l = [r["label"] for r in sig_rows]
+            f1 = macro_f1(true_l, pred_l)
+            _, lo, hi = stratified_bootstrap_ci(true_l, pred_l)
+            null_pred = [r["label"] for r in sig_rows if r["gt"] == "null"]
+            null_fpr = 1 - sum(1 for p in null_pred if p == "null") / max(len(null_pred), 1)
+            results.append({
+                "category": category, "perturbation": perturbation,
+                "severity": severity_str, "signal": signal,
+                "macro_f1": f"{f1:.3f}", "ci_lo": f"{lo:.3f}", "ci_hi": f"{hi:.3f}",
+                "null_fpr": f"{null_fpr:.3f}", "label_entropy": "",
+                "label_counts": "",
+            })
+
+    # Paired delta
+    comp = [r for r in rows if r["signal"] == "composed" and r["gt"] != "mixed"]
+    std = [r for r in rows if r["signal"] == "standardized_sum" and r["gt"] != "mixed"]
+    if comp and std and not is_mixed:
+        comp_f1 = macro_f1([r["gt"] for r in comp], [r["label"] for r in comp])
+        std_f1 = macro_f1([r["gt"] for r in std], [r["label"] for r in std])
+        for r in results:
+            r["paired_delta"] = f"{comp_f1 - std_f1:+.3f}" if r["signal"] == "composed" else ""
+    else:
+        for r in results:
+            r["paired_delta"] = ""
+
+    return results
 
 
 def main():
     cfg = load_config()
-    comp = cfg["composition"]
-    streams = comp["streams"]
-    stream_names = list(streams.keys())
-    n = comp["n_observations"]
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    out_dir = Path("results") / "tables"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "v4_grid.csv"
-
+    print("Null calibration (1000 reps)...")
     thresholds, _ = run_null_calibration(cfg, n_reps=1000)
-    base_amplitudes = {
-        "null": 0.0,
-        "divergence": 1.5,
-        "convergence": 1.5,
-        "oscillation": 0.1,
-        "aperiodic": 0.5,
-    }
-    condition_to_label = dict(GROUND_TRUTH)
 
-    def interpolate_missing(x):
-        x = np.asarray(x, dtype=float).copy()
-        bad = ~np.isfinite(x)
-        if not bad.any():
-            return x
-        good = ~bad
-        if not good.any():
-            return np.zeros_like(x)
-        idx = np.arange(len(x))
-        x[bad] = np.interp(idx[bad], idx[good], x[good])
-        return x
+    all_results = []
+    seed = 99999
 
-    def generate_t_stream(stream_cfg, forcing, rng, df):
-        dist = stream_cfg["distribution"]
-        if dist != "normal":
-            return generate_stream(stream_cfg, forcing, rng)
-        sigma = stream_cfg["null_params"]["sigma"]
-        lam = stream_cfg["alt_params"]["lambda"]
-        scale = sigma / math.sqrt(df / (df - 2.0)) if df > 2 else sigma
-        x = forcing + rng.standard_t(df, len(forcing)) * scale
-        log_e = lam * x - lam**2 / 2
-        return x, log_e
-
-    def classify_v4(features, variant="baseline", period_min=10, curve_mult=1.0):
-        if variant == "baseline":
-            return classify(features, thresholds)
-
-        f = features
-        th = dict(thresholds)
-        th["R_curve_q05"] *= curve_mult
-
-        use_monotone = variant != "no_monotone"
-        use_mk = variant != "no_mann_kendall"
-        use_curve = variant != "no_curvature"
-        use_period_filter = variant != "no_period_filter"
-        use_k01 = variant != "no_01"
-        use_pe = variant != "no_pe"
-
-        monotone = abs(f["S"]) > th["S_q99"]
-        if use_mk:
-            monotone = monotone and abs(f["Z_MK"]) > 2.58
-        monotone = monotone and abs(f["med_last"] - f["med_first"]) > 3 * f["MAD_dx"]
-
-        if use_monotone and monotone:
-            if use_curve and f["R_curve"] < th["R_curve_q05"]:
-                return "convergent", "monotone->curvature->convergent"
-            return "divergent", "monotone->divergent"
-
-        if (not use_monotone) and f["R_curve"] < th["R_curve_q05"]:
-            return "convergent", "curvature->convergent"
-
-        if f["G_spec"] > th["G_spec_q99"] and f["Q_spec"] > 5:
-            period = f["peak_period"]
-            if (not use_period_filter) or (period_min < period < n / 8):
-                return "oscillatory", "periodicity->oscillatory"
-
-        k01_ok = True if not use_k01 else f["K_01"] > 0.8
-        pe_ok = True if not use_pe else 0.55 <= f["PE"] <= 0.95
-        if k01_ok and pe_ok:
-            return "aperiodic", "aperiodic"
-
-        return "null", "null"
-
-    def macro_f1_from_pairs(pairs):
-        f1s = []
-        matrix = {gt: {pred: 0 for pred in LABELS} for gt in LABELS}
-        for gt, pred in pairs:
-            matrix[gt][pred] += 1
-        for label in LABELS:
-            tp = matrix[label][label]
-            fp = sum(matrix[gt][label] for gt in LABELS if gt != label)
-            fn = sum(matrix[label][pred] for pred in LABELS if pred != label)
-            prec = tp / (tp + fp) if tp + fp else 0.0
-            rec = tp / (tp + fn) if tp + fn else 0.0
-            f1s.append(2 * prec * rec / (prec + rec) if prec + rec else 0.0)
-        return float(np.mean(f1s)), matrix
-
-    def bootstrap_ci(pairs, reps=1000, seed=123456):
-        if not pairs:
-            return "", ""
-        rng = np.random.default_rng(seed)
-        vals = []
-        pairs_arr = np.asarray(pairs, dtype=object)
-        for _ in range(reps):
-            idx = rng.integers(0, len(pairs_arr), len(pairs_arr))
-            vals.append(macro_f1_from_pairs(pairs_arr[idx].tolist())[0])
-        lo, hi = np.percentile(vals, [2.5, 97.5])
-        return float(lo), float(hi)
-
-    def entropy_from_counts(counts):
-        total = sum(counts.values())
-        if total == 0:
-            return 0.0
-        probs = [v / total for v in counts.values() if v]
-        return float(-sum(p * math.log2(p) for p in probs))
-
-    def summarize(rows, category, perturbation, severity, mixed=False):
-        out = []
-        for signal in ["composed", "standardized_sum"]:
-            sig_rows = [r for r in rows if r["signal"] == signal]
-            label_counts = Counter(r["label"] for r in sig_rows)
-            if mixed:
-                out.append({
-                    "category": category,
-                    "perturbation": perturbation,
-                    "severity": severity,
-                    "signal": signal,
-                    "n": len(sig_rows),
-                    "macro_f1": "",
-                    "ci95_lo": "",
-                    "ci95_hi": "",
-                    "paired_delta_vs_standardized": "",
-                    "label_entropy": entropy_from_counts(label_counts),
-                    "label_counts": json.dumps(dict(label_counts), sort_keys=True),
-                    "confusion": "",
-                    "extra": "",
-                })
-                continue
-
-            pairs = [(condition_to_label[r["condition"]], r["label"]) for r in sig_rows]
-            f1, matrix = macro_f1_from_pairs(pairs)
-            lo, hi = bootstrap_ci(pairs)
-            out.append({
-                "category": category,
-                "perturbation": perturbation,
-                "severity": severity,
-                "signal": signal,
-                "n": len(sig_rows),
-                "macro_f1": f1,
-                "ci95_lo": lo,
-                "ci95_hi": hi,
-                "paired_delta_vs_standardized": "",
-                "label_entropy": entropy_from_counts(label_counts),
-                "label_counts": json.dumps(dict(label_counts), sort_keys=True),
-                "confusion": json.dumps(matrix, sort_keys=True),
-                "extra": "",
-            })
-
-        if not mixed:
-            comp = [r for r in rows if r["signal"] == "composed"]
-            std = [r for r in rows if r["signal"] == "standardized_sum"]
-            comp_acc = [r["label"] == condition_to_label[r["condition"]] for r in comp]
-            std_acc = [r["label"] == condition_to_label[r["condition"]] for r in std]
-            delta = float(np.mean(comp_acc) - np.mean(std_acc)) if comp_acc and std_acc else ""
-            for r in out:
-                r["paired_delta_vs_standardized"] = delta
-        return out
-
-    def run_cell(category, perturbation, severity, reps, amplitudes=None, variant="baseline",
-                 period_min=10, curve_mult=1.0, degradation=None, mixed_parts=None,
-                 only_conditions=None):
-        amplitudes = amplitudes or base_amplitudes
-        rows = []
-        eval_conditions = ["mixed"] if mixed_parts else (only_conditions or CONDITIONS)
-        for cond in eval_conditions:
-            for rep in range(reps):
-                seed = 99999 + rep + (CONDITIONS.index(cond) * 1000 if cond in CONDITIONS else 7000)
-                rng = np.random.default_rng(seed)
-
-                if mixed_parts:
-                    forcing = np.zeros(n)
-                    for mixed_cond, weight in mixed_parts:
-                        forcing += weight * base_amplitudes[mixed_cond] * make_forcing(mixed_cond, n, rep)
-                elif cond == "null":
-                    forcing = np.zeros(n)
-                else:
-                    forcing = make_forcing(cond, n, rep) * amplitudes.get(cond, 0.0)
-
-                if degradation and degradation[0] == "ar1_null" and cond == "null":
-                    phi = float(degradation[1])
-                    eps = rng.normal(0, 1, n)
-                    ar = np.zeros(n)
-                    for i in range(1, n):
-                        ar[i] = phi * ar[i - 1] + eps[i]
-                    forcing = 0.05 * ar / max(np.std(ar), 1e-10)
-
-                if degradation and degradation[0] == "nonstationary":
-                    drift = float(degradation[1])
-                    forcing = forcing + drift * np.arange(n) / n
-
-                all_x, all_log_e = [], []
-                common = rng.normal(0, 1, n)
-                for sname in stream_names:
-                    stream_cfg = streams[sname]
-                    if degradation and degradation[0] == "t":
-                        x, log_e = generate_t_stream(stream_cfg, forcing, rng, float(degradation[1]))
-                    else:
-                        x, log_e = generate_stream(stream_cfg, forcing, rng)
-                    if degradation and degradation[0] == "correlated":
-                        rho = float(degradation[1])
-                        x = math.sqrt(1 - rho) * x + math.sqrt(rho) * common
-                        if stream_cfg["distribution"] == "normal":
-                            lam = stream_cfg["alt_params"]["lambda"]
-                            log_e = lam * x - lam**2 / 2
-                    if degradation and degradation[0] == "missing":
-                        p = float(degradation[1])
-                        mask = rng.random(n) < p
-                        x = x.copy()
-                        log_e = log_e.copy()
-                        x[mask] = np.nan
-                        log_e[mask] = np.nan
-                    all_x.append(interpolate_missing(x))
-                    all_log_e.append(interpolate_missing(log_e))
-
-                composed = np.sum(all_log_e, axis=0)
-                feats = compute_features(composed)
-                label, kill_log = classify_v4(feats, variant, period_min, curve_mult)
-                rows.append({"condition": cond, "rep": rep, "signal": "composed",
-                             "label": label, "kill_log": kill_log})
-
-                z_scores = [(x - x.mean()) / max(x.std(), 1e-10) for x in all_x]
-                z_sum = np.sum(z_scores, axis=0)
-                feats = compute_features(z_sum)
-                label, kill_log = classify_v4(feats, variant, period_min, curve_mult)
-                rows.append({"condition": cond, "rep": rep, "signal": "standardized_sum",
-                             "label": label, "kill_log": kill_log})
-        return summarize(rows, category, perturbation, str(severity), mixed=bool(mixed_parts))
-
-    result_rows = []
-
+    # AMPLITUDE SWEEP (per-bin detection rate)
+    print("\nAmplitude sweep...")
+    detection_by_bin = {}
     for cond in ["divergence", "convergence", "oscillation", "aperiodic"]:
-        for mult in np.linspace(0, 2, 20):
-            amps = dict(base_amplitudes)
-            amps[cond] = base_amplitudes[cond] * float(mult)
-            result_rows.extend(run_cell("Amplitude", f"{cond}_sweep", f"{mult:.6g}x", 100, amplitudes=amps))
+        detection_by_bin[cond] = []
+        base = V3_AMPS[cond]
+        for step in range(21):
+            amp = base * 2.0 * step / 20
+            amps = dict(V3_AMPS)
+            amps[cond] = amp
+            rows = run_cell(cfg, thresholds, "amplitude", f"{cond}_sweep",
+                            f"{amp:.4f}", CONDITIONS, amps, 100, seed)
+            seed += 50000
+            # Per-bin detection for THIS condition
+            comp_rows = [r for r in rows if r["signal"] == "composed" and r["gt"] == GROUND_TRUTH[cond]]
+            detect = sum(1 for r in comp_rows if r["label"] == r["gt"]) / max(len(comp_rows), 1)
+            detection_by_bin[cond].append((amp, detect))
+            summary = summarize_cell(rows, "amplitude", f"{cond}_sweep", f"{amp:.4f}")
+            for s in summary:
+                s["detection_rate"] = f"{detect:.3f}"
+            all_results.extend(summary)
+            print(f"  {cond} amp={amp:.3f}: detect={detect:.0%}")
 
-    # Equalized difficulty: find amplitude where each bin hits ~80% detection from sweep
-    # Parse sweep results to estimate 80% threshold per bin
-    equalized = dict(base_amplitudes)
+    # EQUALIZED DIFFICULTY
+    print("\nEqualized difficulty...")
+    eq_amps = dict(V3_AMPS)
     for cond in ["divergence", "convergence", "oscillation", "aperiodic"]:
-        sweep_rows = [r for r in result_rows
-                      if r["perturbation"] == f"{cond}_sweep" and r["signal"] == "composed"]
-        for r in sweep_rows:
-            sev = float(r["severity"].replace("x", "")) if "x" in str(r["severity"]) else 0
-            # Find first severity where detection is close to 80%
-            # (simplified: use the existing sweep data)
-        # Fallback: use 80% of V3 amplitude as estimate
-        equalized[cond] = base_amplitudes[cond] * 0.8
-    result_rows.extend(run_cell("Amplitude", "equalized_difficulty", "target_80pct", 100, amplitudes=equalized))
+        pairs = detection_by_bin[cond]
+        # Find amplitude closest to 80% detection
+        best = min(pairs, key=lambda p: abs(p[1] - 0.8))
+        eq_amps[cond] = best[0]
+        print(f"  {cond}: amp={best[0]:.4f} (detect={best[1]:.0%})")
+    rows = run_cell(cfg, thresholds, "amplitude", "equalized_difficulty",
+                    "80pct_target", CONDITIONS, eq_amps, 100, seed)
+    seed += 50000
+    all_results.extend(summarize_cell(rows, "amplitude", "equalized_difficulty", "80pct_target"))
 
-    ablations = [
-        ("Remove curvature test", "no_curvature", 10, 1.0),
-        ("Remove period > 10 filter", "no_period_filter", 10, 1.0),
-        ("Remove 0-1 test (PE only)", "no_01", 10, 1.0),
-        ("Remove PE (0-1 only)", "no_pe", 10, 1.0),
-        ("Remove monotone test", "no_monotone", 10, 1.0),
-        ("Remove Mann-Kendall", "no_mann_kendall", 10, 1.0),
-        ("Curvature threshold -20%", "baseline", 10, 0.8),
-        ("Curvature threshold +20%", "baseline", 10, 1.2),
+    # ABLATIONS (paired seeds)
+    print("\nAblations...")
+    abl_seed = 200000
+    base_rows = run_cell(cfg, thresholds, "ablation", "baseline", "none",
+                         CONDITIONS, V3_AMPS, 100, abl_seed)
+    base_f1 = macro_f1([r["gt"] for r in base_rows if r["signal"] == "composed"],
+                       [r["label"] for r in base_rows if r["signal"] == "composed"])
+
+    for abl_key, abl_name in [
+        ("no_curvature", "Remove curvature"),
+        ("no_period_filter", "Remove period>10"),
+        ("no_01", "Remove 0-1 test"),
+        ("no_pe", "Remove PE"),
+        ("no_monotone", "Remove monotone"),
+        ("no_mk", "Remove Mann-Kendall"),
+    ]:
+        rows = run_cell(cfg, thresholds, "ablation", abl_name, abl_key,
+                        CONDITIONS, V3_AMPS, 100, abl_seed, ablation=abl_key)
+        summary = summarize_cell(rows, "ablation", abl_name, abl_key)
+        abl_f1 = macro_f1([r["gt"] for r in rows if r["signal"] == "composed"],
+                          [r["label"] for r in rows if r["signal"] == "composed"])
+        for s in summary:
+            s["paired_delta"] = f"{abl_f1 - base_f1:+.3f}" if s["signal"] == "composed" else ""
+        all_results.extend(summary)
+        print(f"  {abl_name}: F1={abl_f1:.3f} (delta={abl_f1-base_f1:+.3f})")
+
+    for mult, name in [(0.8, "Curvature -20%"), (1.2, "Curvature +20%")]:
+        rows = run_cell(cfg, thresholds, "ablation", name, f"curve_mult={mult}",
+                        CONDITIONS, V3_AMPS, 100, abl_seed, curve_mult=mult)
+        all_results.extend(summarize_cell(rows, "ablation", name, f"curve_mult={mult}"))
+
+    # DEGRADATIONS (severity sweeps, all 5 conditions)
+    print("\nDegradations...")
+    degradations = [
+        ("autocorrelated", "phi", [0.2, 0.5, 0.8]),
+        ("correlated", "rho", [0.1, 0.3, 0.6]),
+        ("missing", "frac", [0.05, 0.10, 0.25]),
+        ("misspecified", "df", [10, 5, 3]),
+        ("nonstationary", "drift", [0.005, 0.01, 0.02]),
     ]
-    for name, variant, period_min, curve_mult in ablations:
-        result_rows.extend(run_cell("Ablation", name, "on", 100, variant=variant,
-                                    period_min=period_min, curve_mult=curve_mult))
+    for deg_name, param_name, severities in degradations:
+        for sev in severities:
+            rows = run_cell(cfg, thresholds, "degradation", deg_name,
+                            f"{param_name}={sev}", CONDITIONS, V3_AMPS, 500, seed,
+                            degradation=deg_name, deg_params={param_name: sev})
+            seed += 250000
+            summary = summarize_cell(rows, "degradation", deg_name, f"{param_name}={sev}")
+            all_results.extend(summary)
+            comp_f1 = [s["macro_f1"] for s in summary if s["signal"] == "composed"]
+            print(f"  {deg_name} {param_name}={sev}: F1={comp_f1[0] if comp_f1 else '?'}")
 
-    for phi in [0.2, 0.5, 0.8]:
-        result_rows.extend(run_cell("Degradation", "Autocorrelated null AR(1)", phi, 500,
-                                    degradation=("ar1_null", phi)))
-    for rho in [0.1, 0.3, 0.6]:
-        result_rows.extend(run_cell("Degradation", "Correlated streams", rho, 500,
-                                    degradation=("correlated", rho)))
-    for pct in [0.05, 0.10, 0.25]:
-        result_rows.extend(run_cell("Degradation", "Missing data", pct, 500,
-                                    degradation=("missing", pct)))
-    for df in [3, 5, 10]:
-        result_rows.extend(run_cell("Degradation", "Misspecified distribution t", df, 500,
-                                    degradation=("t", df)))
-    for drift in [0.005, 0.01, 0.02]:
-        result_rows.extend(run_cell("Degradation", "Nonstationary baseline", drift, 500,
-                                    degradation=("nonstationary", drift)))
+    # PERIOD FILTER SWEEP
+    print("\nPeriod filter sweep...")
+    for min_p in range(2, 52, 2):
+        rows = run_cell(cfg, thresholds, "filter", "period_threshold",
+                        str(min_p), ["oscillation", "aperiodic"], V3_AMPS, 100, seed,
+                        period_min=min_p)
+        seed += 20000
+        comp = [r for r in rows if r["signal"] == "composed"]
+        aper_ok = sum(1 for r in comp if r["gt"] == "aperiodic" and r["label"] == "aperiodic") / 100
+        osc_ok = sum(1 for r in comp if r["gt"] == "oscillatory" and r["label"] == "oscillatory") / 100
+        all_results.append({
+            "category": "filter", "perturbation": "period_threshold",
+            "severity": str(min_p), "signal": "composed",
+            "macro_f1": "", "ci_lo": "", "ci_hi": "",
+            "null_fpr": "", "label_entropy": "",
+            "label_counts": f"aper={aper_ok:.2f},osc={osc_ok:.2f}",
+            "detection_rate": "", "paired_delta": "",
+        })
+        print(f"  period>{min_p}: aper={aper_ok:.0%}, osc={osc_ok:.0%}")
 
-    for period_min in range(2, 52, 2):
-        result_rows.extend(run_cell("Filter", "Period threshold sweep", period_min, 100,
-                                    period_min=period_min))
-
-    ratios = [(0.2, 0.8), (0.4, 0.6), (0.5, 0.5), (0.6, 0.4), (0.8, 0.2)]
+    # MIXED DYNAMICS (descriptive)
+    print("\nMixed dynamics...")
     mixed_specs = [
-        ("trend+oscillation", ("divergence", "oscillation"), None),
-        ("oscillation+aperiodic", ("oscillation", "aperiodic"), None),
-        ("convergence+oscillation", ("convergence", "oscillation"), None),
-        ("weak divergence+heavy-tailed noise", ("divergence", "null"), ("t", 3)),
+        ("trend+oscillation", [("divergence", None), ("oscillation", None)]),
+        ("oscillation+aperiodic", [("oscillation", None), ("aperiodic", None)]),
+        ("convergence+oscillation", [("convergence", None), ("oscillation", None)]),
+        ("divergence+heavy_tail", [("divergence", None)]),
     ]
-    for name, (a, b), degradation in mixed_specs:
-        for wa, wb in ratios:
-            result_rows.extend(run_cell("Mixed", name, f"{wa}:{wb}", 100,
-                                        degradation=degradation,
-                                        mixed_parts=[(a, wa), (b, wb)]))
+    ratios = [0.2, 0.4, 0.5, 0.6, 0.8]
+    for pair_name, parts_spec in mixed_specs:
+        for r in ratios:
+            if pair_name == "divergence+heavy_tail":
+                # Heavy tail: use t-distributed noise as the second component
+                mixed_parts = [("divergence", r)]
+                # Generate with t-noise degradation for the non-divergence portion
+                rows_list = []
+                for rep in range(100):
+                    rng = np.random.default_rng(seed + rep)
+                    n = cfg["composition"]["n_observations"]
+                    forcing = make_forcing("divergence", n, rep) * V3_AMPS["divergence"] * r
+                    forcing += rng.standard_t(3, n) * 0.3 * (1 - r)
+                    all_x, all_log_e = [], []
+                    for sname in cfg["composition"]["streams"]:
+                        x, log_e = generate_stream(cfg["composition"]["streams"][sname], forcing, rng)
+                        all_x.append(x)
+                        all_log_e.append(log_e)
+                    composed = np.sum(all_log_e, axis=0)
+                    feats = compute_features(composed)
+                    label, _ = classify_v4(feats, thresholds)
+                    rows_list.append({"condition": "mixed", "rep": rep, "signal": "composed",
+                                      "label": label, "gt": "mixed"})
+                seed += 100
+                summary = summarize_cell(rows_list, "mixed", pair_name, f"{r:.1f}:{1-r:.1f}", is_mixed=True)
+            else:
+                cond1, cond2 = parts_spec[0][0], parts_spec[1][0]
+                mixed_parts = [(cond1, r), (cond2, 1-r)]
+                rows = run_cell(cfg, thresholds, "mixed", pair_name,
+                                f"{r:.1f}:{1-r:.1f}", ["null"], V3_AMPS, 100, seed,
+                                mixed_parts=mixed_parts)
+                seed += 10000
+                summary = summarize_cell(rows, "mixed", pair_name, f"{r:.1f}:{1-r:.1f}", is_mixed=True)
+            all_results.extend(summary)
+            counts = [s["label_counts"] for s in summary if s["signal"] == "composed"]
+            print(f"  {pair_name} {r:.1f}:{1-r:.1f}: {counts[0] if counts else '?'}")
 
-    t_null_rows = run_cell("E-value validity", "t null type-I", "df=3", 1000,
-                           amplitudes={"null": 0.0}, degradation=("t", 3),
-                           only_conditions=["null"])
-    for row in t_null_rows:
-        row["extra"] = "type_i_rate=null predicted non-null; anytime/supermartingale diagnostics not available from V3 log_e API"
-    result_rows.extend(t_null_rows)
+    # E-VALUE VALIDITY
+    print("\nE-value validity...")
+    exceedance_count = 0
+    max_mean_et = 0.0
+    validity_reps = 1000
+    for rep in range(validity_reps):
+        rng = np.random.default_rng(seed + rep)
+        n = cfg["composition"]["n_observations"]
+        forcing = np.zeros(n)
+        all_log_e = []
+        for sname in cfg["composition"]["streams"]:
+            s_cfg = cfg["composition"]["streams"][sname]
+            if s_cfg["distribution"] == "normal":
+                df = 3
+                sigma = s_cfg["null_params"]["sigma"]
+                scale = sigma * math.sqrt(df / (df - 2))
+                x = rng.standard_t(df, n) * scale
+                lam = s_cfg["alt_params"]["lambda"]
+                log_e = lam * x - lam**2 / 2
+            else:
+                x, log_e = generate_stream(s_cfg, forcing, rng)
+            all_log_e.append(log_e)
+        composed = np.sum(all_log_e, axis=0)
+        cum_log_e = np.cumsum(composed)
+        max_E = np.exp(np.max(cum_log_e))
+        if max_E > 20:
+            exceedance_count += 1
+        # Track mean e_t at each time
+        if rep == 0:
+            mean_et_accum = np.exp(composed)
+        else:
+            mean_et_accum += np.exp(composed)
+    seed += validity_reps
 
-    fieldnames = [
-        "category", "perturbation", "severity", "signal", "n", "macro_f1",
-        "ci95_lo", "ci95_hi", "paired_delta_vs_standardized", "label_entropy",
-        "label_counts", "confusion", "extra",
-    ]
+    type_i_rate = exceedance_count / validity_reps
+    mean_et = mean_et_accum / validity_reps
+    max_mean = float(np.max(mean_et))
+    all_results.append({
+        "category": "validity", "perturbation": "t_null_type_i",
+        "severity": "df=3", "signal": "composed",
+        "macro_f1": "", "ci_lo": "", "ci_hi": "",
+        "null_fpr": f"type_i={type_i_rate:.3f}",
+        "label_entropy": "",
+        "label_counts": f"max_mean_et={max_mean:.4f},exceedance={exceedance_count}/{validity_reps}",
+        "detection_rate": "", "paired_delta": "",
+    })
+    print(f"  Type-I rate: {type_i_rate:.1%}, max mean(e_t): {max_mean:.4f}")
+
+    # SAVE
+    fieldnames = ["category", "perturbation", "severity", "signal",
+                  "macro_f1", "ci_lo", "ci_hi", "null_fpr",
+                  "label_entropy", "label_counts", "detection_rate", "paired_delta"]
+    out_path = OUT_DIR / "v4_grid.csv"
     with open(out_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(result_rows)
-
-    print(f"Wrote {len(result_rows)} rows to {out_path}")
+        writer.writerows(all_results)
+    print(f"\nSaved {len(all_results)} rows to {out_path}")
+    print("Done.")
 
 
 if __name__ == "__main__":
