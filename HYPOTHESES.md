@@ -152,6 +152,32 @@ Each experiment's results generated the next experiments. This document tracks t
 - Low-tempo (basic research, architecture): full convergence. The hypothesis graph is the research program.
 - The kill-condition tree from the blog post applies to all three tempos but the convergence guarantee only applies to low-tempo.
 
+## From the feature vector discussion
+
+**H24: The optimal kill-condition ordering is determined by ablation damage, not intuition.**
+- V4 ablation gives the damage ranking: monotone (0.726) > curvature (0.267) > period filter (0.264) > everything else (0.000).
+- The current hierarchy was designed by intuition. The ablation-derived ranking may differ.
+- Test: reorder the kill-condition tree by ablation damage. Does F1 change? Does robustness improve?
+- One experiment, one person, already have the data.
+
+**H25: The actionable feature vector is 3-dimensional, not 9-dimensional.**
+- Mann-Kendall, 0-1 test, PE, E_ratio, rho_env contribute zero ablation damage.
+- The 3 load-bearing features (Theil-Sen slope, curvature ratio, spectral peak) are sufficient.
+- The 9→3 compression isn't information loss — it's the ablation identifying which dimensions are noise.
+- Test: run V3 and V4 with the 3-feature classifier. Same detection cliffs? Same robustness profile?
+
+**H26: The feature vector's geometry reveals the mixed-dynamics structure the 4-bin classifier hides.**
+- PCA on V4's 290 feature vectors would show intrinsic dimensionality.
+- Trajectories that classify to the same bin but sit far apart in feature space are different kinds of the same regime.
+- Trajectories between bins (mixed dynamics) would appear as intermediate positions in feature space.
+- Test: PCA + scatter plot of V4 feature vectors, colored by true label. How many clusters? Do they match the bins?
+
+**H27: Sliding-window features create a feature trajectory — the trajectory of the trajectory.**
+- Computing features on sliding windows produces a time series of feature vectors.
+- A system transitioning from oscillation to chaos would show G_spec declining and K_01 rising over time.
+- The feature trajectory is higher-resolution than a single classification and lower-resolution than the raw data.
+- This is the right level for the hypothesis graph: each node is a feature vector, not a bin.
+
 ## Priority ranking
 
 | Hypothesis | Impact | Difficulty | Next |
