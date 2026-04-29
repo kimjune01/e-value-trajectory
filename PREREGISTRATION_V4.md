@@ -6,6 +6,7 @@ V3 achieved F1 = 1.000 on clean synthetic data. V4 asks: how fragile is it?
 
 - **Metric:** macro-F1 over five classes (null, convergent, divergent, oscillatory, aperiodic).
 - **Pass:** lower 95% bootstrap CI > 0.8 at mildest severity of each degradation.
+- **Inconclusive:** lower CI ≤ 0.8 but point estimate ≥ 0.6.
 - **Fail:** point estimate < 0.6 at mildest severity.
 - **Harsher severities are descriptive, not pass/fail.**
 - Bootstrap: 1000 samples. Unit of resampling: trajectory.
@@ -35,7 +36,7 @@ One pipeline, many perturbations. Each perturbation modifies one aspect of V3's 
 | **Degradation** | Correlated streams | ρ = {0.1, 0.3, 0.6} | 500 |
 | **Degradation** | Missing data | {5%, 10%, 25%} | 500 |
 | **Degradation** | Misspecified distribution (Normal → t) | df = {3, 5, 10} | 500 |
-| **Degradation** | Nonstationary baseline | drift = {0.005, 0.01, 0.02}·t/N | 500 |
+| **Degradation** | Nonstationary baseline | drift_coef = {0.005, 0.01, 0.02} | 500 |
 | **Filter** | Period threshold sweep | {2, 4, 6, ..., 50} | 100 |
 | **Mixed** | trend+oscillation | ratio = {0.2:0.8, 0.4:0.6, 0.5:0.5, 0.6:0.4, 0.8:0.2} | 100 |
 | **Mixed** | oscillation+aperiodic | ratio = {0.2:0.8, 0.4:0.6, 0.5:0.5, 0.6:0.4, 0.8:0.2} | 100 |
@@ -96,15 +97,17 @@ else:
 
 Each ablation neutralizes one feature before classification. The tree runs unchanged; only the input differs.
 
-| Ablation | Operation |
-|---|---|
-| Remove monotone | Set S=0, Z_MK=0 |
-| Remove Mann-Kendall | Set Z_MK=0 |
-| Remove curvature | Set R_curve=1.0 (neutral) |
-| Remove period filter | Set period_min=0 |
-| Remove 0-1 test | Set K_01=0 |
-| Remove PE | Set PE=0 |
-| Curvature ±20% | Set curve_mult=0.8 or 1.2 |
+| Ablation | Operation | Effect |
+|---|---|---|
+| Remove monotone | Set S=inf, Z_MK=inf | Monotone check always passes; classifier skips to curvature |
+| Remove Mann-Kendall | Set Z_MK=inf | MK always passes; monotone depends only on S and median diff |
+| Remove curvature | Set R_curve=0.0 | Curvature always below threshold; monotone always → convergent |
+| Remove period filter | Set period_min=0 | All spectral peaks accepted regardless of frequency |
+| Remove 0-1 test | Set K_01=1.0 | 0-1 test always passes; aperiodic depends only on PE |
+| Remove PE | Set PE=0.75 | PE always in range; aperiodic depends only on K_01 |
+| Curvature ±20% | Set curve_mult=0.8 or 1.2 | Stricter or looser curvature separation |
+
+Logic: to "remove" a test in a boolean AND chain, set the neutralized variable to a value that always satisfies the check (not one that always fails it).
 
 ### Seed schedule
 
@@ -112,7 +115,7 @@ Each ablation neutralizes one feature before classification. The tree runs uncha
 - Evaluation: seed = 99999 + rep + CONDITIONS.index(condition) * 10000. CONDITIONS order is from `src/fourbin.py`: ["null", "divergence", "convergence", "oscillation", "aperiodic"]. Reps are per condition per severity. Disjoint from calibration.
 - Random draw order within each rep: (1) AR(1) eps if autocorrelated, (2) shared latent z if correlated, (3) stream generation in stream_names order, (4) MCAR masks per stream, (5) t-noise replacement if misspecified. This order is normative for seed reproducibility.
 - Ablations: same seeds as baseline evaluation (paired comparison).
-- Bootstrap: seed derived from `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal}".encode()).hexdigest()[:8], 16)`. Stable across Python processes (no PYTHONHASHSEED dependency).
+- Bootstrap: per-sample seed = `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal},{b}".encode()).hexdigest()[:8], 16)` where `b` is the bootstrap iteration index (0–999). This ensures each of the 1000 samples draws a different resample. Stable across Python processes.
 
 ### Amplitude sweep
 
@@ -136,8 +139,9 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 
 **Correlated streams:**
 - Generate one shared latent `z ~ N(0, 1)` of length N per rep.
-- Before generating each stream, mix the forcing: `forcing_corr = sqrt(1 - rho) * forcing + sqrt(rho) * 0.3 * z`.
-- Generate streams from `forcing_corr`. This preserves marginal distributions (Poisson rates stay positive via log link, Bernoulli via logit link) because the corruption enters through the forcing, not the observations.
+- Before generating each stream, add correlated noise to forcing: `forcing_corr = forcing + rho * 0.3 * z`.
+- Do NOT scale down the deterministic forcing. The signal amplitude stays unchanged; only correlated noise is added. This isolates the effect of correlation from signal attenuation.
+- Generate streams from `forcing_corr`. Marginal distributions are preserved because corruption enters through the forcing, not the observations.
 
 **Missing data (MCAR):**
 - For each stream independently, draw a mask: `mask = rng.random(N) < frac`.
@@ -152,8 +156,8 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 - Classifier still uses V3 thresholds (no recalibration).
 
 **Nonstationary baseline:**
-- Add `drift * t / N` to the forcing for all conditions, where `t = np.arange(N)`.
-- Additive, positive drift. Applied before stream generation.
+- Let `drift_coef` ∈ {0.005, 0.01, 0.02}. Add `drift_coef * t / N` to the forcing for all conditions, where `t = np.arange(N)`.
+- At t=N, the total drift added equals `drift_coef`. Additive, positive. Applied before stream generation.
 
 ### Mixed dynamics
 
@@ -167,7 +171,7 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 - Run 1000 reps under null with the temperature stream using t(df=3) noise (same as misspecified degradation). Other streams use their V3 null distributions.
 - For each rep: compute `cum_log_e = cumsum(composed_log_e)` and `max_E = exp(max(cum_log_e))`.
 - Anytime exceedance rate: fraction of reps where `max_E > 20`.
-- Supermartingale diagnostic: accumulate `mean_et[t] = mean over reps of exp(composed_log_e[t])` at each time point. Report `max over t of mean_et`. Inflated if > 1.05.
+- Supermartingale diagnostic: accumulate `mean_Et[t] = mean over reps of exp(cum_log_e[t])` at each time point. This checks the **cumulative** e-value process E_t, not the single-step e_t. Report `max over t of mean_Et`. Inflated if > 1.05.
 - Separate seeds from degradation reps.
 
 ### Macro-F1
@@ -180,13 +184,14 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 
 - Stratified percentile bootstrap: resample trajectories within each true class (preserving class balance), recompute macro-F1 on each bootstrap sample.
 - 1000 bootstrap samples. CI = [2.5th percentile, 97.5th percentile].
-- Seed: `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal}".encode()).hexdigest()[:8], 16)`. Stable hash.
+- Per-sample seed: `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal},{b}".encode()).hexdigest()[:8], 16)` where `b` = bootstrap iteration index. Each sample gets a unique seed.
 
 ### Standardized sum baseline
 
 - Per stream: `z = (x - mean(x)) / std(x)`. For missing data: use `nanmean` and `nanstd`.
 - Sum across streams: `z_sum = sum of z_k`.
-- Run the same V4 classifier on `z_sum` features.
+- **Separate null calibration for z_sum:** run 1000 null reps, compute features on z_sum, extract thresholds (S_q99, R_curve_q05, G_spec_q99) from the z_sum null distribution. The standardized sum operates on a different scale than composed log_e; applying composed thresholds would produce ~100% misclassification.
+- Run the V4 classifier with z_sum-calibrated thresholds on `z_sum` features.
 - Report macro-F1 and paired delta (composed F1 minus standardized F1) per cell.
 
 ### Output schema
