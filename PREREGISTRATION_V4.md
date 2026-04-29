@@ -5,7 +5,7 @@ V3 achieved F1 = 1.000 on clean synthetic data. V4 asks: how fragile is it?
 ## Primary endpoint
 
 - **Metric:** macro-F1 over five classes (null, convergent, divergent, oscillatory, aperiodic).
-- **Pass:** lower 95% bootstrap CI > 0.8 at mildest severity of each perturbation.
+- **Pass:** lower 95% bootstrap CI > 0.8 at mildest severity of each degradation.
 - **Fail:** point estimate < 0.6 at mildest severity.
 - **Harsher severities are descriptive, not pass/fail.**
 - Bootstrap: 1000 samples. Unit of resampling: trajectory.
@@ -16,7 +16,7 @@ Calibration: 80000–80999 (1000 reps). Evaluation: 99999+, disjoint. Ablations 
 
 ## Design
 
-One pipeline, many perturbations. Each perturbation modifies one aspect of V3's setup, runs the same generate → compose → classify → score loop, and reports macro-F1 + confusion matrix + paired comparison against standardized sum.
+One pipeline, many perturbations. Each perturbation modifies one aspect of V3's setup, runs the same generate → compose → classify → score loop. Degradations and ablations report macro-F1 + confusion matrix + paired comparison against standardized sum. Mixed dynamics report label distribution and entropy (no correct label).
 
 ### Perturbation grid
 
@@ -28,6 +28,7 @@ One pipeline, many perturbations. Each perturbation modifies one aspect of V3's 
 | **Ablation** | Remove period > 10 filter | 1 | 100 |
 | **Ablation** | Remove 0-1 test (PE only) | 1 | 100 |
 | **Ablation** | Remove PE (0-1 only) | 1 | 100 |
+| **Ablation** | Remove monotone test (skip to curvature) | 1 | 100 |
 | **Ablation** | Remove Mann-Kendall (slope only) | 1 | 100 |
 | **Ablation** | Curvature threshold ±20% | 2 | 100 |
 | **Degradation** | Autocorrelated null (AR(1)) | φ = {0.2, 0.5, 0.8} | 500 |
@@ -36,7 +37,10 @@ One pipeline, many perturbations. Each perturbation modifies one aspect of V3's 
 | **Degradation** | Misspecified distribution (Normal → t) | df = {3, 5, 10} | 500 |
 | **Degradation** | Nonstationary baseline | drift = {0.005, 0.01, 0.02}·t/N | 500 |
 | **Filter** | Period threshold sweep | {2, 4, 6, ..., 50} | 100 |
-| **Mixed** | Two forcings superimposed | ratio = {0.2:0.8, 0.5:0.5, 0.8:0.2} | 100 |
+| **Mixed** | trend+oscillation | ratio = {0.2:0.8, 0.4:0.6, 0.5:0.5, 0.6:0.4, 0.8:0.2} | 100 |
+| **Mixed** | oscillation+aperiodic | ratio = {0.2:0.8, 0.4:0.6, 0.5:0.5, 0.6:0.4, 0.8:0.2} | 100 |
+| **Mixed** | convergence+oscillation | ratio = {0.2:0.8, 0.4:0.6, 0.5:0.5, 0.6:0.4, 0.8:0.2} | 100 |
+| **Mixed** | weak divergence+heavy-tailed noise (df=3) | ratio = {0.2:0.8, 0.4:0.6, 0.5:0.5, 0.6:0.4, 0.8:0.2} | 100 |
 
 Degradations applied to all five classes so macro-F1 is computable. Mixed dynamics are descriptive only (no correct label, report label distribution and entropy).
 
