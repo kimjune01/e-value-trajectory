@@ -217,3 +217,35 @@ Blind-blind-merge process: round 1 had 5 design disagreements and 17 implementat
 The gemini CLI uses Vertex AI, but preview models are on the Generative Language API (different endpoint). Added gem() to .zshrc but removed it per user preference. Direct python3/urllib calls to generativelanguage.googleapis.com work for gemini-3.1-pro-preview.
 
 Status: V4 prereg approved. Implementation needs rewrite to match fixed spec (ablation logic, z_sum calibration, correlation formula, supermartingale check). Ready to implement.
+
+## 2026-04-29
+
+### 00:00 — V4 experiment completed
+
+V4 ran through all six phases. 290-row CSV, four plots, full results document (RESULTS_V4.md). Key findings:
+- Detection cliffs are razor-sharp (0%→100% in one grid step), vary 50× across bins
+- Divergence cliff at V3 amplitude (barely works), oscillation 5× above cliff (trivially easy)
+- 3 of 7 classifier components load-bearing (monotone, curvature, period filter), 2 fully redundant (MK, one aperiodic detector)
+- Robust to heavy tails (F1=1.000 at df=3) and drift
+- Fragile to missing data (collapses at 10%) and correlation (ρ=0.6)
+- E-value type-I rate passes (3.5%) but supermartingale violated (mean Et=1232)
+
+### 08:00 — Correlation research and hypothesis generation
+
+Codex research on correlated e-value composition: product is invalid under dependence. Wang (2025, Biometrika) proved weighted arithmetic mean is the only admissible merger under arbitrary dependence. Cost: linear growth instead of exponential. K_eff = K/(1+ρ(K-1)) quantifies the slowdown.
+
+Discussion generated 12 new hypotheses (H15-H27) covering: convergence rate vs ρ, composition crossover point, averaging baseline, decorrelation via factor model, provability of the convergence theorem, Hume's boundary = provability boundary, pipeline distortion propagation, playbook structure across SRE/medical/military, domain tempo classification, 3-feature minimal classifier, feature vector geometry, sliding-window feature trajectories.
+
+Fan-out on existing playbooks (SRE, medical, military): all three instantiate partial hypothesis graphs but stop operationally, not proof-theoretically. F3EAD closest to a hypothesis graph. Ottawa Ankle Rules are pure kill-condition trees. Codex validated: "existing playbooks instantiate partial hypothesis graphs, but their stopping logic is operational rather than proof-theoretic."
+
+Key insight: the 9-dimensional feature vector compresses to 3 actionable dimensions (Theil-Sen slope, curvature ratio, spectral peak). Ablation damage determines the ranking, not intuition.
+
+### 08:30 — Next: test the easiest hypotheses
+
+Then we test the hypotheses that are the easiest. Priority candidates from HYPOTHESES.md:
+- H25: 3-feature classifier (remove MK, 0-1, PE, E_ratio, rho_env). Already have data. One afternoon.
+- H24: reorder kill-condition tree by ablation damage. Already have data.
+- H7: replace product with arithmetic mean. Swap one line.
+- H6: replace log_e=0 imputation with weighted imputation. Swap one function.
+
+Total: 27 hypotheses generated. 4 immediately testable with existing data/code.
