@@ -136,6 +136,22 @@ Each experiment's results generated the next experiments. This document tracks t
 - The pipeline's robustness depends on which steps absorb which distortions. Rank-based features absorbed heavy tails. But they wouldn't absorb missing data (which enters at the e-value step and propagates through all downstream steps).
 - Test: characterize which distortions are absorbed at which pipeline stage. Build a distortion propagation model.
 
+## From the playbook fan-out (SRE, medical, military)
+
+**H22: Existing playbooks instantiate partial hypothesis graphs with operational stopping, not proof-theoretic convergence.**
+- SRE: stops when service restored. Medicine: stops when no further tests indicated. Military: stops at decision points.
+- None prove they found the right answer. They prove they reached a pragmatically acceptable state.
+- The hypothesis graph offers evidence-bounded convergence. Whether that's useful depends on whether the domain can afford to wait.
+- Fast domains (emergency, military, incidents) trade convergence for tempo. Slow domains (research, chronic disease, architecture) can afford convergence.
+- Sources: Google SRE Ch. 12, Ottawa Ankle Rules (Stiell JAMA 1994), F3EAD (Flynn JFQ 2008), Boyd OODA.
+- Codex validated. Wang (2025) Biometrika cited for dependent composition admissibility.
+
+**H23: The hypothesis graph's value proposition differs by domain tempo.**
+- High-tempo (military, ER, incident response): the graph provides structure for the diagnostic process but convergence is sacrificed for speed. Time-bounded stopping.
+- Medium-tempo (clinical trials, product development, scrum): the graph accumulates over sprints/trials. Convergence is possible if the system is stationary.
+- Low-tempo (basic research, architecture): full convergence. The hypothesis graph is the research program.
+- The kill-condition tree from the blog post applies to all three tempos but the convergence guarantee only applies to low-tempo.
+
 ## Priority ranking
 
 | Hypothesis | Impact | Difficulty | Next |
