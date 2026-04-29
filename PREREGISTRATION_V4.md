@@ -68,7 +68,7 @@ Pins every implementation decision. Two independent implementers reading this ap
 
 ### V3 normative reference
 
-Pinned commit: `63fda12` (`~/e-value-trajectory`). Authoritative files: `src/fourbin.py`, `configs/conditions.yaml`. N=10,000 per stream, K=5 streams (temperature/Normal, fish_count/Poisson, inter_event/Exponential, turbidity/Bernoulli, dissolved_oxygen/Lognormal). Classifier thresholds from 1000-rep null calibration (seeds 80000–80999).
+Pinned commit: `63fda12` (`~/e-value-trajectory`). Authoritative files: `src/fourbin.py`, `configs/conditions.yaml`. N=10,000 per stream, K=5 streams (temperature/Normal, fish_count/Poisson, inter_event/Exponential, turbidity/Bernoulli, dissolved_oxygen/Lognormal). Classifier thresholds from 1000-rep null calibration (seeds 80000–80999). Base class amplitudes from `src/fourbin.py`: null=0.0, divergence=1.5, convergence=1.5, oscillation=0.1, aperiodic=0.5. These are distinct from per-stream amplitudes in `conditions.yaml`.
 
 ### Classifier
 
@@ -109,7 +109,8 @@ Each ablation neutralizes one feature before classification. The tree runs uncha
 ### Seed schedule
 
 - Null calibration: seeds 80000–80999 (1000 reps).
-- Evaluation: seed = 99999 + rep + CONDITIONS.index(condition) * 10000. CONDITIONS order is from `conditions.yaml` YAML key order: ["null", "divergence", "convergence", "oscillation", "aperiodic"]. Reps are per condition per severity. Disjoint from calibration.
+- Evaluation: seed = 99999 + rep + CONDITIONS.index(condition) * 10000. CONDITIONS order is from `src/fourbin.py`: ["null", "divergence", "convergence", "oscillation", "aperiodic"]. Reps are per condition per severity. Disjoint from calibration.
+- Random draw order within each rep: (1) AR(1) eps if autocorrelated, (2) shared latent z if correlated, (3) stream generation in stream_names order, (4) MCAR masks per stream, (5) t-noise replacement if misspecified. This order is normative for seed reproducibility.
 - Ablations: same seeds as baseline evaluation (paired comparison).
 - Bootstrap: seed derived from `int(hashlib.sha256(f"{category},{perturbation},{severity},{signal}".encode()).hexdigest()[:8], 16)`. Stable across Python processes (no PYTHONHASHSEED dependency).
 
@@ -141,7 +142,7 @@ Each degradation modifies the data generation for ALL five conditions, not just 
 **Missing data (MCAR):**
 - For each stream independently, draw a mask: `mask = rng.random(N) < frac`.
 - Set `log_e[mask] = 0` (neutral evidence: the missing observation contributes nothing to the composed trajectory). Do NOT interpolate or drop.
-- The observation `x` is also masked for the standardized sum: `x[mask] = NaN`, then the standardized sum uses `nanmean` and `nanstd`.
+- The observation `x` is also masked for the standardized sum: `x[mask] = NaN`. Per-stream z-scores use `nanmean` and `nanstd`. Missing z-scores (where x was NaN) are filled with 0 before summing across streams (neutral contribution). Sum uses `np.sum`, not `np.nansum`.
 
 **Misspecified distribution (Normal → t):**
 - Replace only the temperature/Normal stream's noise with t-distributed noise.
@@ -216,5 +217,5 @@ null_fpr, label_entropy, label_counts, detection_rate, paired_delta
 - `results/tables/v4_grid.csv` — all perturbations, all metrics, one table
 - `results/plots/v4_sensitivity.png` — 4 subplots (one per bin), x=amplitude, y=detection rate, with 95% CI shaded. Horizontal line at 80% and 90%.
 - `results/plots/v4_degraded.png` — heatmap, rows=degradation type, cols=severity, cell color=composed macro-F1, text=F1 value. Colorscale: red(<0.6) → yellow(0.8) → green(>0.9).
-- `results/plots/v4_ablation.png` — horizontal bar chart, one bar per ablation, x=paired delta in macro-F1 vs baseline, sorted by magnitude. Error bars from bootstrap CI.
+- `results/plots/v4_ablation.png` — horizontal bar chart, one bar per ablation, x=paired delta in macro-F1 vs baseline, sorted by magnitude. Error bars: bootstrap CI on the delta, computed by resampling paired trajectories by shared (condition, rep) and computing delta-F1 on each bootstrap sample.
 - `results/plots/v4_mixed.png` — stacked bar chart per mixed condition, faceted by ratio, bars=label counts, colored by label.
