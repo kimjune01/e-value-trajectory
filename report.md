@@ -291,7 +291,7 @@ This result is a consequence of a known property (likelihood ratio optimality, N
 
 The blog post proposed a four-bin classification: converge, diverge, oscillate, chaos. Claim 4 tested only oscillation. Claim 5 tested all four bins with a kill-condition decision tree on composed e-value trajectories.
 
-**Composed: macro-F1 = 0.996.** Near-perfect classification across all five labels (null, divergent, convergent, oscillatory, aperiodic). Only 2% false positive rate on null (2 reps misclassified as oscillatory).
+**Composed: macro-F1 = 1.000.** Perfect classification across all five labels (null, divergent, convergent, oscillatory, aperiodic). Zero false positives. (Initial run with 200 null calibration reps scored F1 = 0.996 with 2% null false positive rate; rerun with 1000 null reps per prereg specification eliminated the two false positives via tighter thresholds.)
 
 **Standardized sum: macro-F1 = 0.478.** Divergence completely missed (64% null, 36% convergent). Aperiodic completely missed (100% null). Only convergence and oscillation detected.
 
@@ -299,7 +299,7 @@ The blog post proposed a four-bin classification: converge, diverge, oscillate, 
 
 | Signal | Null | Divergent | Convergent | Oscillatory | Aperiodic | F1 |
 |---|---|---|---|---|---|---|
-| Composed | 98% | 100% | 100% | 100% | 100% | 0.996 |
+| Composed | 100% | 100% | 100% | 100% | 100% | 1.000 |
 | Standardized sum | 99% | 0% | 100% | 100% | 0% | 0.478 |
 | Individual majority | 100% | 0% | 0% | 99% | 0% | 0.279 |
 
