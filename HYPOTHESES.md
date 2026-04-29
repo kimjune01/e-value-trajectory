@@ -86,6 +86,56 @@ Each experiment's results generated the next experiments. This document tracks t
 - Test: build a small system with injected faults. Run the agent. Does it identify the fault?
 - This is the demo that turns the framework into a tool.
 
+## From the correlation discussion
+
+**H15: Convergence rate of the hypothesis graph is quantifiable as a function of ρ.**
+- K_eff = K / (1 + ρ(K-1)). At ρ=0.6, K=5: K_eff ≈ 1.47. Five correlated streams carry the information of 1.5 independent ones.
+- Hypothesis graph convergence time scales as T × K/K_eff. At ρ=0.6, ~3.3× slower.
+- Test: run the classifier with product composition at varying ρ, measure detection cliff position. Plot cliff vs ρ. Does it follow 1/K_eff?
+
+**H16: There exists a ρ threshold where composition hurts — single-stream is better than K correlated streams.**
+- If K_eff < 1, composition adds more shared noise than signal. Theoretical threshold: ρ > 1/(K-1) makes K_eff < K/2.
+- At K=5, ρ > 0.25 halves the effective streams. At ρ > 0.8, K_eff ≈ 1.2 — barely better than one stream.
+- Test: compare composed 5-stream classifier vs single best stream at ρ = {0.3, 0.5, 0.7, 0.9}. Find the crossover.
+
+**H17: Averaging composition is stable across ρ but has a floor on detection power.**
+- Wang (2025): weighted arithmetic mean is the only admissible merger under arbitrary dependence.
+- Product grows as exp(K×d). Average grows as K×d. The gap is exponential.
+- But: average never becomes invalid. Product becomes invalid as soon as ρ > 0.
+- Test: replace product with average in V3/V4. Measure: does F1 stay constant across ρ? What's the detection cliff?
+- Prediction: averaging has a higher cliff (needs more signal) but the cliff doesn't move with ρ.
+
+**H18: Decorrelation via factor model recovers product composition power.**
+- If shared noise z can be estimated: residual e-values are conditionally independent → product is valid.
+- Factor model: z_hat = first principal component of the 5 streams. Residual = stream - loading × z_hat.
+- Risk: estimation error in z_hat leaves residual correlation → product is still invalid but less so.
+- Test: estimate z via PCA on null data, decorrelate, recompose with product. Measure F1 at ρ=0.6.
+- This is the bridge between "always average" (safe but weak) and "always product" (powerful but fragile).
+
+## From the provability discussion
+
+**H19: The convergence theorem is provable by composition of four existing theorems.**
+- Components: Grünwald (composition validity), Milnor (MECE partition), finite set elimination (trivial), Chernoff (adaptive convergence).
+- The chain: valid composition → exhaustive classification → elimination per test → adaptive convergence.
+- Under independence: exponential convergence rate.
+- Under dependence (averaging): linear convergence rate, K_eff determines the constant.
+- Not an experiment — a proof. The assembly is the contribution.
+
+**H20: The framework's provability boundary IS Hume's boundary.**
+- Where you can perturb: the theorem is provable (composition + classification + convergence).
+- Where you can't: no composition, no classification of response (no response), no convergence guarantee.
+- This is not a limitation of the framework — it's a limitation of epistemology. The framework just makes the boundary explicit and measurable.
+- The speed of convergence (1/K_eff as a function of ρ) quantifies how far inside Hume's boundary you are. ρ=0 is maximally inside (full independence, fast convergence). ρ→1 is at the boundary (effectively passive observation).
+
+## From the processing pipeline discussion
+
+**H21: Each postprocessing step introduces a potential confound. The total distortion is the composition of per-step distortions.**
+- Pipeline: raw data → e-value formula (distributional assumption) → preprocessing (outlier model) → features (stationarity) → classifier (MECE bins) → label.
+- Each step is faithful under its assumptions and distorting when assumptions fail.
+- V4 showed: distributional misspecification (e-value step) inflates the supermartingale but doesn't affect classification because features are rank-based (preprocessing step absorbs it).
+- The pipeline's robustness depends on which steps absorb which distortions. Rank-based features absorbed heavy tails. But they wouldn't absorb missing data (which enters at the e-value step and propagates through all downstream steps).
+- Test: characterize which distortions are absorbed at which pipeline stage. Build a distortion propagation model.
+
 ## Priority ranking
 
 | Hypothesis | Impact | Difficulty | Next |
@@ -96,3 +146,10 @@ Each experiment's results generated the next experiments. This document tracks t
 | H13 (loop vs random) | High — validates the blog post | Medium — needs simulation | V6 |
 | H14 (agent demo) | Highest — makes it real | High — needs a cogarch | Future |
 | H12 (convergence theorem) | Highest — makes it math | High — needs a proof | Future |
+| H15 (convergence rate vs ρ) | High — quantifies the soft science cost | Low — one sweep | V5 |
+| H16 (composition crossover) | High — determines when to stop composing | Low — one comparison | V5 |
+| H17 (averaging baseline) | High — the safe fallback | Low — swap one line | V5 |
+| H18 (decorrelation) | Medium — bridge between safe and powerful | Medium — needs factor model | V5 |
+| H19 (provability) | Highest — the theorem | High — needs a proof | Future |
+| H20 (Hume's boundary) | Conceptual — frames everything | Zero — it's an observation | Blog post |
+| H21 (distortion propagation) | Medium — pipeline robustness | Medium — needs per-step analysis | V6 |
