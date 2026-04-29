@@ -75,6 +75,16 @@ Sweep the period filter threshold from 2 to 50 in steps of 2. At each threshold,
 
 **Prediction:** Below period ≈ 8, aperiodic gets misclassified as oscillatory (logistic map period-2 structure). Above period ≈ 20, some short-period oscillatory patterns get missed.
 
+### Bootstrap confidence intervals
+
+All F1 scores and detection rates reported with 95% bootstrap CIs (1000 bootstrap samples). Per-condition accuracy also reported with Wilson intervals. This addresses V3's missing uncertainty quantification.
+
+### Prereg checklist audit
+
+Audited against [the prereg checklist](https://june.kim/the-prereg-checklist). 18/20 questions answered. Two skipped:
+- Q12 (Kuhn): alternative bin structures not tested — that's a different experiment.
+- Q15 (Pearl): V4 makes no causal claims; it's a robustness test.
+
 ### Experiment parameters
 
 - N = 10,000 observations per stream
