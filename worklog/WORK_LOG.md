@@ -169,3 +169,51 @@ Proper run with 1000 null calibration reps. Composed classifier: perfect classif
 Pre-registered five stress tests to turn F1 = 1.000 from exploratory to confirmatory: amplitude sensitivity curves, decision-tree ablation, mixed dynamics, degraded conditions (autocorrelated nulls, correlated streams, missing data, misspecified distributions, nonstationary baselines), period filter sensitivity sweep. Added bootstrap CIs. Audited against the prereg checklist: 18/20 questions answered, two skipped with reasons (Q12 alternative bin structures, Q15 no causal claims).
 
 Connected Hume to the blog post: sciences that can't perturb are structurally unable to learn causality. The hypothesis graph only works where you can poke.
+
+### 19:00 — Blog post published: The Hypothesis Graph
+
+"The Hypothesis Graph" published as sequel to "Evidence has a trajectory." Core claim: experiments are nodes, kill conditions generate edges, the frontier is where belief meets the unknown. Proof by contradiction that the hypothesis generation algorithm must exist. Three SVGs (mechanic, web server, p-value vs e-value). MECE partition via Milnor. Hume cited for perturbation-access limit. Closer: "If we can poke it, we know how to know."
+
+Multiple copyedit passes fixed pipeline issues: em-dash pass was missing (18→0), prosody pass was missing, parallel scan caused silent conflict resolution. Rewrote copyedit skill: sequential pipeline, apply-first workflow. Codex cross-review of both posts found contradictions ("don't reshape" vs Fisher weighting, "cleanly" vs partial knowledge). All fixed.
+
+### 20:00 — V3 rerun F1=1.000, V4 prereg started
+
+1000-null-rep rerun of V3: perfect classification. Codex adversarial review flagged manual amplitudes, post-hoc period filter, synthetic cleanliness. V4 prereg written: amplitude sensitivity, ablation, mixed dynamics, degraded conditions, period filter sweep. Three codex rounds to converge the prereg.
+
+### 21:00 — V4 implementation: blind-blind-merge
+
+Round 1: wrote implementation, sent codex the prereg to write its own blind. Diffed. Five disagreements: missing data (zero-pad vs interpolate), correlated streams (corrupt x vs log_e), equalized difficulty (estimate vs hardcode), output schema (7 vs 13 columns), standardized sum (missing vs per-cell). Merged best of both.
+
+Codex bug hunt found 17 bugs. Highest impact: period sweep was a no-op (classifier delegated to V3 ignoring knobs), correlated streams only affected Normal, equalized difficulty was stubbed, e-value validity not implemented.
+
+Root cause: 20 spec ambiguities in the prereg. Codex spec-level review confirmed. Wrote operational appendix pinning every decision: classifier knobs, ablation operations, seed schedule, degradation operators, mixed dynamics formula, bootstrap method, output schema.
+
+Round 2: blind-blind-merge with appendix. 1 disagreement (plots only, completeness not design). Down from 5. The appendix worked.
+
+### 21:45 — V4 prereg nearing codex approval
+
+Seven nits remaining: pinned commit SHA, stable hash (SHA-256 not Python hash), 21 steps not 20, t-scaling corrected (sqrt((df-2)/df) not sqrt(df/(df-2))), reps per-condition-per-severity, CONDITIONS order pinned to YAML, plot specs fully defined. All fixed.
+
+Status: waiting on codex final approval of V4 prereg. Implementation ready to run once approved.
+
+### 22:00 — V4 prereg approved by 3 independent reviewers
+
+Codex (GPT-5.5) approved after 3 rounds. Gemini 2.5 Pro approved on first pass. Gemini 3.1 Pro Preview rejected on first pass, finding 7 bugs the other two missed:
+
+1. Ablation logic inverted: setting features to 0 kills the class instead of skipping the test. Fix: set to always-pass values (inf, 1.0, 0.75).
+2. Standardized sum needs its own null calibration (different scale from composed log_e).
+3. Correlated streams formula attenuated the deterministic signal. Fix: add noise, don't scale down.
+4. Supermartingale check was on single-step e_t, not cumulative E_t.
+5. Bootstrap seed lacked iteration index, producing 1000 identical samples.
+6. Drift formula was ambiguous (could be squared).
+7. Pass/fail had a gap between 0.6 and 0.8.
+
+All 7 fixed. Gemini 3.1 Pro re-approved. Three reviewers, three approvals.
+
+Blind-blind-merge process: round 1 had 5 design disagreements and 17 implementation bugs. Operational appendix resolved design disagreements. Round 2 had 1 disagreement (plots only). Gemini 3.1 caught logic bugs that survived both the appendix and two other reviewers.
+
+### 22:30 — Gemini CLI fixed
+
+The gemini CLI uses Vertex AI, but preview models are on the Generative Language API (different endpoint). Added gem() to .zshrc but removed it per user preference. Direct python3/urllib calls to generativelanguage.googleapis.com work for gemini-3.1-pro-preview.
+
+Status: V4 prereg approved. Implementation needs rewrite to match fixed spec (ablation logic, z_sum calibration, correlation formula, supermartingale check). Ready to implement.
