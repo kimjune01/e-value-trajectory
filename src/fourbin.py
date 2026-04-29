@@ -635,7 +635,7 @@ def main():
     print("=" * 60)
     print("PHASE 1: Null calibration (1000 reps)")
     print("=" * 60)
-    thresholds, null_features = run_null_calibration(cfg, n_reps=200)
+    thresholds, null_features = run_null_calibration(cfg, n_reps=1000)
 
     print("\n" + "=" * 60)
     print("PHASE 2: Amplitudes (manual, iterate to find weak-signal regime)")
